@@ -14,8 +14,8 @@ G - gateway
 First part of the plan is to get the reliable engine that will get requests from gateways, and distribute them across MNs. The exact execution of requests I'd leave for the next stages.
 
 ## Steps
-- [ ] local run of etcd in docker compose
-    - [ ] add possibility to introduce delays between etcd nodes
+- [X] local run of etcd in docker compose
+    - [X] add possibility to introduce delays between etcd nodes
 - [ ] MN. deploy empty application in N exemplars in docker-compose that just write to the log
 - [ ] MN. leader election through etcd
 - [ ] write script that finds leader, pauses the container and then restores it after a new leader elected
