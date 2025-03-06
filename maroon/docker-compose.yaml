@@ -1,0 +1,15 @@
+services:
+  mn:
+    build:
+      context: ..
+      dockerfile: maroon/Dockerfile
+    deploy:
+        replicas: ${N:-3}
+    environment:
+      - RUST_LOG=info
+    networks:
+      - maroon-network
+      
+networks:
+  maroon-network:
+    name: maroon-network
