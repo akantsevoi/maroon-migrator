@@ -31,3 +31,41 @@ parts:
 
 # Main objectives
 - durable, distributed, universal task queue for OLTP systems
+
+
+# Write to ETCD 
+let's say we want to write each 1/16 of second.
+What we're going to do:
+we have 5 nodes: A,B,C,D,E
+Then through etcd we don't need to have a leader, we need to have an order. Ex:
+
+B,C,A,D,E. Which means: Each 1/16 of second B tries to write it's order. If at 1/16 it won't write anything - Next node will try to write at the next tick(at 2/16). If that one will be unsuccessfull as well - the next one, until it will write and from that point it will become the "leader" - Not really a leader. Just the "first writer"
+
+Ex:
+
+order: B,C,A,D,E
+tick: 1/16
+t3 == tick number 3 ~=> 3/16 second from 0
+t3~ == shortly after tick number 3
+
+|time|event|
+|-|-|
+|t1|B fixed sequence|
+|t1~| A,D,E got update, reset timers, but not C|
+|t2|B fixed sequence|
+|t2~| A,D,E got update, reset timers but not C|
+|t3|B fixed sequence|
+|t3| C thinks B crashed and tries to fix sequence(since it's C's order), failed attempt, reset counter|
+|t3~| C,A,D,E got update, reset timers|
+|t3~| B crashed|
+|t4|nobody tries to write|
+|t5| C's order - tries to fix sequence. Success.|
+|t5~| D,E got update, reset timers but not A|
+|t6| A thinks that C crashed, so tries to fix the sequence - unsuccessfull, reset counter|
+|t6| C fixes sequence|
+
+
+How to ensure the order:
+1. node gets all nodes in "/node"
+    1.1. from /node/{number} - uses number as an index, gets the {latest}
+2. tries to create a record with the lease: "/node/{latest +1}". If unsuccessfull jump to step 1
