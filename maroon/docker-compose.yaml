@@ -4,12 +4,13 @@ services:
       context: ..
       dockerfile: maroon/Dockerfile
     deploy:
-        replicas: ${N:-3}
+      replicas: ${N:-3}
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=debug
+      - ETCD_ENDPOINTS=http://etcd-00:2379,http://etcd-01:2379,http://etcd-02:2379
+      - NODE_ID=node_id_${HOSTNAME}
     networks:
-      - maroon-network
-      
+      - etcd
 networks:
-  maroon-network:
-    name: maroon-network
+  etcd:
+    external: true
