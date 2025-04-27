@@ -120,7 +120,7 @@ async fn start_getting_order_updates(
                                 info!("current nodes: {:?}", &order_to_node_id);
 
                                 if let Some(pos) =
-                                    order_to_node_id.iter().position(|kv| kv.1 == n_id)
+                                    order_to_node_id.iter().position(|kv| kv.1 == node_label)
                                 {
                                     info!("my current order offset is {}", pos);
                                 }
