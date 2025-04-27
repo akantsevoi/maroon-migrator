@@ -10,6 +10,9 @@ use std::vec;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    // TODO: make sure that random generation is good enough to be unique. Maybe switch to manually set it???
+    // NODE_LABEL can be set from outside or can be generated automatically
+    // it's important that NODE_LABEL is unique
     let node_label = std::env::var("NODE_LABEL").ok().unwrap_or_else(|| {
         let mut rng = rand::thread_rng();
         format!("maroon_{}", rng.gen_range(0..i32::MAX))
@@ -211,33 +214,3 @@ async fn nodes_order_cycle(client: &mut Client, node_label: &String) -> Result<(
         }
     }
 }
-
-/*
-
-loop {
-    get_next_index
-    create_lease_on_next_index
-    if unsucess { continue }
-
-    loop {
-        renew lease
-
-
-    }
-
-}
-
-loop(alias watch) {
-    get_node_records
-    find_until_has_its_own
-    if found {
-        my order is this
-    } else {
-        my order is unknown
-    }
-
-    sleep 1 sec
-}
-
-
-*/

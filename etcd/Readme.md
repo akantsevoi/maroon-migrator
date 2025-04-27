@@ -12,7 +12,7 @@ etcdctl --endpoints=http://localhost:2379 member list
 ```
 
 ```sh
-etcdctl --endpoints=http://localhost:2379 get --prefix /maroonNode
+etcdctl --endpoints=http://localhost:2379 get --prefix /maroonOrder
 etcdctl --endpoints=http://localhost:2379 del --prefix /etcdBatch   
 etcdctl --endpoints=http://localhost:2379 put key value
 etcdctl --endpoints=http://localhost:2379 watch /maroonOrder/
