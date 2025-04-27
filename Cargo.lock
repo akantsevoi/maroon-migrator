@@ -675,6 +675,7 @@ dependencies = [
  "env_logger",
  "etcd-client",
  "log",
+ "rand",
  "tokio",
 ]
 

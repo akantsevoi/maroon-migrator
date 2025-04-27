@@ -8,7 +8,6 @@ services:
     environment:
       - RUST_LOG=debug
       - ETCD_ENDPOINTS=http://etcd-00:2379,http://etcd-01:2379,http://etcd-02:2379
-      - NODE_ID=node_id_${HOSTNAME}
     networks:
       - etcd
 networks:

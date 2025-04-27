@@ -4,29 +4,35 @@ use etcd_client::{
     Txn, TxnOp, TxnOpResponse, WatchOptions,
 };
 use log::{LevelFilter, info};
+use rand::Rng;
 use std::io::Write;
 use std::vec;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    let node_label = std::env::var("NODE_LABEL").ok().unwrap_or_else(|| {
+        let mut rng = rand::thread_rng();
+        format!("maroon_{}", rng.gen_range(0..i32::MAX))
+    });
+    let etcd_endpoints = std::env::var("ETCD_ENDPOINTS").expect("ETCD_ENDPOINTS not set");
+
+    let node_label_clone = node_label.clone();
     Builder::new()
-        .format(|buf, record| {
+        .format(move |buf, record| {
             writeln!(
                 buf,
-                "{}:{} [{}] - {}",
+                "{}:{} [{}][{}] - {}",
                 record.file().unwrap_or("unknown"),
                 record.line().unwrap_or(0),
                 record.level(),
+                node_label_clone,
                 record.args()
             )
         })
         .filter(None, LevelFilter::Info)
         .init();
 
-    let node_id = std::env::var("NODE_ID").expect("NODE_ID not set");
-    let etcd_endpoints = std::env::var("ETCD_ENDPOINTS").expect("ETCD_ENDPOINTS not set");
-
-    info!("Maroon Node started {}", node_id);
+    info!("Maroon Node started");
 
     let etcd_endpoints: Vec<String> = etcd_endpoints.split(",").map(|s| s.to_string()).collect();
 
@@ -34,9 +40,9 @@ async fn main() -> Result<(), Error> {
     let mut client = Client::connect(&etcd_endpoints, None).await?;
     info!("etcd client created");
 
-    let _ = start_getting_order_updates(&etcd_endpoints, &node_id).await?;
+    let _ = start_getting_order_updates(&etcd_endpoints, &node_label).await?;
     info!("order updates started");
-    let _ = nodes_order_cycle(&mut client, node_id).await?;
+    let _ = nodes_order_cycle(&mut client, &node_label).await?;
 
     return Ok(());
 }
@@ -74,10 +80,10 @@ fn get_the_latest_index(resp: Option<&TxnOpResponse>) -> i64 {
 // if can't find itself - this node is out of order
 async fn start_getting_order_updates(
     etcd_endpoints: &Vec<String>,
-    node_id: &String,
+    node_label: &String,
 ) -> Result<(), Error> {
     let mut client = Client::connect(etcd_endpoints, None).await?;
-    let n_id = node_id.clone();
+    let node_label: String = node_label.clone();
 
     let (watcher, mut watch_stream) = client
         .watch(ORDER_PREFIX, Some(WatchOptions::new().with_prefix()))
@@ -130,7 +136,7 @@ async fn start_getting_order_updates(
     return Ok(());
 }
 
-async fn nodes_order_cycle(client: &mut Client, node_id: String) -> Result<(), Error> {
+async fn nodes_order_cycle(client: &mut Client, node_label: &String) -> Result<(), Error> {
     let node_order_number: i64;
 
     let mut keeper: LeaseKeeper;
@@ -165,7 +171,7 @@ async fn nodes_order_cycle(client: &mut Client, node_id: String) -> Result<(), E
                     )])
                     .and_then(vec![TxnOp::put(
                         format!("{}{}", ORDER_PREFIX, try_index).as_str(),
-                        node_id.clone(),
+                        node_label.clone(),
                         Some(PutOptions::new().with_lease(lease_id)),
                     )]),
             )
@@ -181,7 +187,7 @@ async fn nodes_order_cycle(client: &mut Client, node_id: String) -> Result<(), E
         loop {
             info!(
                 "Maroon Node heartbeat. NodeID: {} Number: {}",
-                node_id, node_order_number
+                node_label, node_order_number
             );
 
             match keeper.keep_alive().await {
