@@ -54,28 +54,23 @@ async fn main() -> Result<(), Error> {
 
 const ORDER_PREFIX: &str = "/maroonOrder/";
 fn get_the_latest_index(resp: Option<&TxnOpResponse>) -> i64 {
-    if let Some(response) = resp {
-        match response {
-            etcd_client::TxnOpResponse::Get(get_resp) => {
-                let mut max = 0;
-                for kv in get_resp.kvs() {
-                    let key = String::from_utf8_lossy(kv.key());
-
-                    let num_str = key.strip_prefix(ORDER_PREFIX).unwrap_or("0").to_string();
-
-                    let num = num_str.parse::<i64>().unwrap_or(0);
-                    if num > max {
-                        max = num;
-                    }
-                }
-
-                return max;
-            }
-            _ => return 0,
-        }
-    } else {
+    let Some(etcd_client::TxnOpResponse::Get(get_resp)) = resp else {
         return 0;
+    };
+
+    let mut max = 0;
+    for kv in get_resp.kvs() {
+        let key = String::from_utf8_lossy(kv.key());
+
+        let num_str = key.strip_prefix(ORDER_PREFIX).unwrap_or("0").to_string();
+
+        let num = num_str.parse::<i64>().unwrap_or(0);
+        if num > max {
+            max = num;
+        }
     }
+
+    return max;
 }
 
 // watches updates for ORDER_PREFIX
@@ -95,43 +90,42 @@ async fn start_getting_order_updates(
         // Keep watcher alive within the task scope
         let _watcher = watcher;
         loop {
-            if let Ok(Some(_)) = watch_stream.message().await {
-                let res = client
-                    .txn(Txn::new().and_then(vec![TxnOp::get(
-                        ORDER_PREFIX,
-                        Some(GetOptions::new().with_prefix()),
-                    )]))
-                    .await;
-                if let Ok(res) = res {
-                    if let Some(get_resp) = res.op_responses().get(0) {
-                        match get_resp {
-                            TxnOpResponse::Get(get_resp) => {
-                                let mut order_to_node_id: Vec<(i64, String)> = Vec::new();
-                                for kv in get_resp.kvs() {
-                                    let key = String::from_utf8_lossy(kv.key())
-                                        .strip_prefix(ORDER_PREFIX)
-                                        .unwrap_or("0")
-                                        .parse::<i64>()
-                                        .unwrap_or(0);
-                                    let value = String::from_utf8_lossy(kv.value()).to_string();
+            let Ok(Some(_)) = watch_stream.message().await else {
+                continue;
+            };
 
-                                    order_to_node_id.push((key, value));
-                                }
+            let res = client
+                .txn(Txn::new().and_then(vec![TxnOp::get(
+                    ORDER_PREFIX,
+                    Some(GetOptions::new().with_prefix()),
+                )]))
+                .await;
 
-                                order_to_node_id.sort_by_key(|kv| kv.0);
+            let Ok(res) = res else {
+                continue;
+            };
 
-                                info!("current nodes: {:?}", &order_to_node_id);
+            let responses = res.op_responses();
+            let Some(TxnOpResponse::Get(get_resp)) = responses.get(0) else {
+                continue;
+            };
 
-                                if let Some(pos) =
-                                    order_to_node_id.iter().position(|kv| kv.1 == node_label)
-                                {
-                                    info!("my current order offset is {}", pos);
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
+            let mut order_to_node_id: Vec<(i64, String)> = Vec::new();
+            for kv in get_resp.kvs() {
+                let key = String::from_utf8_lossy(kv.key())
+                    .strip_prefix(ORDER_PREFIX)
+                    .unwrap_or("0")
+                    .parse::<i64>()
+                    .unwrap_or(0);
+                let value = String::from_utf8_lossy(kv.value()).to_string();
+
+                order_to_node_id.push((key, value));
+            }
+
+            order_to_node_id.sort_by_key(|kv| kv.0);
+            info!("current nodes: {:?}", &order_to_node_id);
+            if let Some(pos) = order_to_node_id.iter().position(|kv| kv.1 == node_label) {
+                info!("my current order offset is {}", pos);
             }
         }
     });
