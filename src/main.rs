@@ -136,6 +136,9 @@ async fn start_getting_order_updates(
     return Ok(());
 }
 
+const LEASE_TTL: i64 = 6;
+const LEASE_REFRESH_PERIOD: u64 = 3;
+
 async fn nodes_order_cycle(client: &mut Client, node_label: &String) -> Result<(), Error> {
     let node_order_number: i64;
 
@@ -156,7 +159,7 @@ async fn nodes_order_cycle(client: &mut Client, node_label: &String) -> Result<(
 
         // Lease for current node's order
 
-        let lease = client.lease_grant(3, None).await?;
+        let lease = client.lease_grant(LEASE_TTL, None).await?;
         let lease_id = lease.id();
 
         (keeper, keeper_stream) = client.lease_keep_alive(lease_id).await?;
@@ -204,7 +207,7 @@ async fn nodes_order_cycle(client: &mut Client, node_label: &String) -> Result<(
                 // info!("Lease keep-alive response: {:?}", _resp);
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            tokio::time::sleep(tokio::time::Duration::from_secs(LEASE_REFRESH_PERIOD)).await;
         }
     }
 }
