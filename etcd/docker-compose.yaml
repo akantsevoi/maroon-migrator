@@ -100,4 +100,4 @@ volumes:
 
 networks:
   etcd:
-    driver: bridge
+    external: true
