@@ -22,9 +22,9 @@ First part of the plan is to get the reliable engine that will get requests from
     - [X] add possibility to introduce delays between etcd nodes
 - [X] MN. deploy empty application in N exemplars in docker-compose that just writes to the log
 - [ ] MN. node order + calculating delays
-    - [ ] MN. establish p2p connection between all the nodes(exchange public keys) + send pings
+    - [X] MN. establish p2p connection between all the nodes(exchange public keys) + send pings
     - [ ] MN. calculate delay for each node
-    - [ ] MN. 
+    - [ ] MN.
 - [ ] write script that finds leader, pauses the container and then restores it after a new leader elected
 - [ ] G. create a library/main script that can send requests to MN.
     - [ ] make it in a form of library but for now it can be called via script

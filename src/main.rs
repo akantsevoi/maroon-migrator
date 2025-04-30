@@ -35,8 +35,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|s| s.to_string())
         .collect();
 
-    let p2p_port: String =
-        std::env::var("P2P_PORT").map_err(|e| format!("P2P_PORT not set: {}", e))?;
+    let self_url: String =
+        std::env::var("SELF_URL").map_err(|e| format!("SELF_URL not set: {}", e))?;
 
     // Generate identity keypair and peer ID
     let local_key = identity::Keypair::generate_ed25519();
@@ -69,9 +69,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_idle_connection_timeout(std::time::Duration::from_secs(60)),
     );
 
-    swarm.listen_on(format!("/ip4/0.0.0.0/tcp/{}", p2p_port).parse()?)?;
+    swarm.listen_on(self_url.parse()?)?;
 
     for url in node_urls {
+        if url == self_url {
+            continue;
+        }
+
         let addr: Multiaddr = url.parse()?;
         println!("Dialing {addr} …");
         swarm.dial(addr)?;
@@ -80,14 +84,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         match swarm.select_next_some().await {
             SwarmEvent::NewListenAddr { address, .. } => {
-                println!("→ Listening on {address}");
+                println!("Listening on {address}");
             }
             SwarmEvent::Behaviour(MaroonBehaviourEvent::Ping(PingEvent {
                 peer,
                 connection,
                 result,
             })) => {
-                println!("❖ Ping with {peer}: {result:?}: {connection:?}");
+                println!("Ping with {peer}: {result:?}: {connection:?}");
             }
             SwarmEvent::ConnectionClosed {
                 peer_id,
