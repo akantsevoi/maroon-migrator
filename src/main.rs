@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use futures::StreamExt;
 use libp2p::{
     Multiaddr, PeerId,
@@ -81,6 +83,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         swarm.dial(addr)?;
     }
 
+    let mut alive_peer_ids: HashSet<PeerId> = HashSet::new();
+    alive_peer_ids.insert(local_peer_id);
+
     loop {
         match swarm.select_next_some().await {
             SwarmEvent::NewListenAddr { address, .. } => {
@@ -103,6 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!(
                     "Connection closed {peer_id}: {endpoint:?}: {connection_id:?}: {num_established}: {cause:?}"
                 );
+                alive_peer_ids.remove(&peer_id);
             }
             SwarmEvent::ConnectionEstablished {
                 peer_id,
@@ -115,8 +121,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!(
                     "Connection established {peer_id}: {endpoint:?}: {connection_id:?}: {num_established}"
                 );
+                alive_peer_ids.insert(peer_id);
             }
             _ => {}
         }
+
+        recalculate_order(&alive_peer_ids);
     }
+}
+
+fn recalculate_order(ids: &HashSet<PeerId>) {
+    let mut peer_ids: Vec<&PeerId> = ids.iter().collect();
+
+    peer_ids.sort();
+
+    println!("nodes order: {:?}", peer_ids);
 }
