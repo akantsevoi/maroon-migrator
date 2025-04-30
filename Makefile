@@ -1,3 +1,5 @@
+ETCD_ENDPOINTS := http://localhost:2379,http://localhost:2381,http://localhost:2383
+
 .PHONY: run-local shutdown start-etcd build-mn run-compose help
 
 help:
@@ -10,7 +12,9 @@ help:
 	@echo "  make help             - Show this help message"
 
 run-local:
-	ETCD_ENDPOINTS=http://localhost:2379,http://localhost:2381,http://localhost:2383 \
+	ETCD_ENDPOINTS=${ETCD_ENDPOINTS} \
+	NODE_URLS=/ip4/127.0.0.1/tcp/3001 \
+	P2P_PORT=3000 \
 	RUST_LOG=debug \
 		cargo run
 

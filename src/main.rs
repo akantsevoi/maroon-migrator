@@ -1,210 +1,118 @@
-use env_logger::Builder;
-use etcd_client::{
-    Client, Compare, CompareOp, Error, GetOptions, LeaseKeepAliveStream, LeaseKeeper, PutOptions,
-    Txn, TxnOp, TxnOpResponse, WatchOptions,
+use futures::StreamExt;
+use libp2p::{
+    Multiaddr, PeerId,
+    core::{transport::Transport as _, upgrade},
+    identity,
+    noise::{Config as NoiseConfig, Error as NoiseError},
+    ping::{Behaviour as PingBehaviour, Config as PingConfig, Event as PingEvent},
+    swarm::{Config as SwarmConfig, NetworkBehaviour, Swarm, SwarmEvent},
+    tcp::{Config as TcpConfig, tokio::Transport as TokioTcpTransport},
+    yamux::Config as YamuxConfig,
 };
-use log::{LevelFilter, info};
-use rand::Rng;
-use std::io::Write;
-use std::vec;
+
+#[derive(NetworkBehaviour)]
+#[behaviour(out_event = "MaroonBehaviourEvent")]
+struct MaroonBehaviour {
+    ping: PingBehaviour,
+}
+
+pub enum MaroonBehaviourEvent {
+    Ping(PingEvent),
+}
+
+impl From<PingEvent> for MaroonBehaviourEvent {
+    fn from(e: PingEvent) -> Self {
+        MaroonBehaviourEvent::Ping(e)
+    }
+}
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
-    // TODO: make sure that random generation is good enough to be unique. Maybe switch to manually set it???
-    // NODE_LABEL can be set from outside or can be generated automatically
-    // it's important that NODE_LABEL is unique
-    let node_label = std::env::var("NODE_LABEL").ok().unwrap_or_else(|| {
-        let mut rng = rand::thread_rng();
-        format!("maroon_{}", rng.gen_range(0..i32::MAX))
-    });
-    let etcd_endpoints = std::env::var("ETCD_ENDPOINTS").expect("ETCD_ENDPOINTS not set");
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Parse NODE_URLS environment variable
+    let node_urls: Vec<String> = std::env::var("NODE_URLS")
+        .map_err(|e| format!("NODE_URLS not set: {}", e))?
+        .split(',')
+        .map(|s| s.to_string())
+        .collect();
 
-    let node_label_clone = node_label.clone();
-    Builder::new()
-        .format(move |buf, record| {
-            writeln!(
-                buf,
-                "{}:{} [{}][{}] - {}",
-                record.file().unwrap_or("unknown"),
-                record.line().unwrap_or(0),
-                record.level(),
-                node_label_clone,
-                record.args()
-            )
-        })
-        .filter(None, LevelFilter::Info)
-        .init();
+    let p2p_port: String =
+        std::env::var("P2P_PORT").map_err(|e| format!("P2P_PORT not set: {}", e))?;
 
-    info!("Maroon Node started");
+    // Generate identity keypair and peer ID
+    let local_key = identity::Keypair::generate_ed25519();
+    let local_peer_id = PeerId::from(local_key.public());
+    println!("Local peer id: {:?}", local_peer_id);
 
-    let etcd_endpoints: Vec<String> = etcd_endpoints.split(",").map(|s| s.to_string()).collect();
+    let auth_config = NoiseConfig::new(&local_key)
+        .map_err(|e: NoiseError| format!("noise config error: {}", e))?;
 
-    info!("endpoints: {:#?}", etcd_endpoints);
-    let mut client = Client::connect(&etcd_endpoints, None).await?;
-    info!("etcd client created");
+    // Build the TCP transport with Tokio, Noise, and Yamux
+    let transport = TokioTcpTransport::new(TcpConfig::default().nodelay(true))
+        .upgrade(upgrade::Version::V1)
+        .authenticate(auth_config)
+        .multiplex(YamuxConfig::default())
+        .boxed();
 
-    let _ = start_getting_order_updates(&etcd_endpoints, &node_label).await?;
-    info!("order updates started");
-    let _ = nodes_order_cycle(&mut client, &node_label).await?;
-
-    return Ok(());
-}
-
-// order change cycle
-
-const ORDER_PREFIX: &str = "/maroonOrder/";
-fn get_the_latest_index(resp: Option<&TxnOpResponse>) -> i64 {
-    let Some(etcd_client::TxnOpResponse::Get(get_resp)) = resp else {
-        return 0;
+    let behaviour = MaroonBehaviour {
+        ping: PingBehaviour::new(
+            PingConfig::new()
+                .with_interval(std::time::Duration::from_secs(5))
+                .with_timeout(std::time::Duration::from_secs(10)),
+        ),
     };
 
-    let mut max = 0;
-    for kv in get_resp.kvs() {
-        let key = String::from_utf8_lossy(kv.key());
+    let mut swarm = Swarm::new(
+        transport,
+        behaviour,
+        local_peer_id,
+        SwarmConfig::with_tokio_executor()
+            .with_idle_connection_timeout(std::time::Duration::from_secs(60)),
+    );
 
-        let num_str = key.strip_prefix(ORDER_PREFIX).unwrap_or("0").to_string();
+    swarm.listen_on(format!("/ip4/0.0.0.0/tcp/{}", p2p_port).parse()?)?;
 
-        let num = num_str.parse::<i64>().unwrap_or(0);
-        if num > max {
-            max = num;
-        }
+    for url in node_urls {
+        let addr: Multiaddr = url.parse()?;
+        println!("Dialing {addr} …");
+        swarm.dial(addr)?;
     }
 
-    return max;
-}
-
-// watches updates for ORDER_PREFIX
-// gets all the nodes, sorts, finds itself - this is that node's order
-// if can't find itself - this node is out of order
-async fn start_getting_order_updates(
-    etcd_endpoints: &Vec<String>,
-    node_label: &String,
-) -> Result<(), Error> {
-    let mut client = Client::connect(etcd_endpoints, None).await?;
-    let node_label: String = node_label.clone();
-
-    let (watcher, mut watch_stream) = client
-        .watch(ORDER_PREFIX, Some(WatchOptions::new().with_prefix()))
-        .await?;
-    let _watch_task = tokio::spawn(async move {
-        // Keep watcher alive within the task scope
-        let _watcher = watcher;
-        loop {
-            let Ok(Some(_)) = watch_stream.message().await else {
-                continue;
-            };
-
-            let res = client
-                .txn(Txn::new().and_then(vec![TxnOp::get(
-                    ORDER_PREFIX,
-                    Some(GetOptions::new().with_prefix()),
-                )]))
-                .await;
-
-            let Ok(res) = res else {
-                continue;
-            };
-
-            let responses = res.op_responses();
-            let Some(TxnOpResponse::Get(get_resp)) = responses.get(0) else {
-                continue;
-            };
-
-            let mut order_to_node_id: Vec<(i64, String)> = Vec::new();
-            for kv in get_resp.kvs() {
-                let key = String::from_utf8_lossy(kv.key())
-                    .strip_prefix(ORDER_PREFIX)
-                    .unwrap_or("0")
-                    .parse::<i64>()
-                    .unwrap_or(0);
-                let value = String::from_utf8_lossy(kv.value()).to_string();
-
-                order_to_node_id.push((key, value));
-            }
-
-            order_to_node_id.sort_by_key(|kv| kv.0);
-            info!("current nodes: {:?}", &order_to_node_id);
-            if let Some(pos) = order_to_node_id.iter().position(|kv| kv.1 == node_label) {
-                info!("my current order offset is {}", pos);
-            }
-        }
-    });
-
-    return Ok(());
-}
-
-const LEASE_TTL: i64 = 6;
-const LEASE_REFRESH_PERIOD: u64 = 3;
-
-async fn nodes_order_cycle(client: &mut Client, node_label: &String) -> Result<(), Error> {
-    let node_order_number: i64;
-
-    let mut keeper: LeaseKeeper;
-    let mut keeper_stream: LeaseKeepAliveStream;
-
     loop {
-        let res = client
-            .txn(Txn::new().and_then(vec![TxnOp::get(
-                ORDER_PREFIX,
-                Some(GetOptions::new().with_prefix()),
-            )]))
-            .await?;
-
-        let index = get_the_latest_index(res.op_responses().get(0));
-        let try_index = index + 1;
-        info!("current latest: {}. Next to try: {}", index, try_index);
-
-        // Lease for current node's order
-
-        let lease = client.lease_grant(LEASE_TTL, None).await?;
-        let lease_id = lease.id();
-
-        (keeper, keeper_stream) = client.lease_keep_alive(lease_id).await?;
-
-        let txn_resp = client
-            .txn(
-                Txn::new()
-                    .when(vec![Compare::version(
-                        format!("{}{}", ORDER_PREFIX, try_index).as_str(),
-                        CompareOp::Equal,
-                        0,
-                    )])
-                    .and_then(vec![TxnOp::put(
-                        format!("{}{}", ORDER_PREFIX, try_index).as_str(),
-                        node_label.clone(),
-                        Some(PutOptions::new().with_lease(lease_id)),
-                    )]),
-            )
-            .await?;
-
-        if !txn_resp.succeeded() {
-            continue;
-        }
-
-        node_order_number = try_index;
-        info!("finished. Got number: {}", node_order_number);
-
-        loop {
-            info!(
-                "Maroon Node heartbeat. NodeID: {} Number: {}",
-                node_label, node_order_number
-            );
-
-            match keeper.keep_alive().await {
-                Ok(_) => info!("Refreshed lease"),
-                Err(e) => info!("Failed to refresh lease: {:?}", e),
+        match swarm.select_next_some().await {
+            SwarmEvent::NewListenAddr { address, .. } => {
+                println!("→ Listening on {address}");
             }
-
-            if let Ok(Ok(Some(_resp))) = tokio::time::timeout(
-                tokio::time::Duration::from_millis(100),
-                keeper_stream.message(),
-            )
-            .await
-            {
-                // info!("Lease keep-alive response: {:?}", _resp);
+            SwarmEvent::Behaviour(MaroonBehaviourEvent::Ping(PingEvent {
+                peer,
+                connection,
+                result,
+            })) => {
+                println!("❖ Ping with {peer}: {result:?}: {connection:?}");
             }
-
-            tokio::time::sleep(tokio::time::Duration::from_secs(LEASE_REFRESH_PERIOD)).await;
+            SwarmEvent::ConnectionClosed {
+                peer_id,
+                connection_id,
+                endpoint,
+                num_established,
+                cause,
+            } => {
+                println!(
+                    "Connection closed {peer_id}: {endpoint:?}: {connection_id:?}: {num_established}: {cause:?}"
+                );
+            }
+            SwarmEvent::ConnectionEstablished {
+                peer_id,
+                connection_id,
+                endpoint,
+                num_established,
+                concurrent_dial_errors,
+                established_in,
+            } => {
+                println!(
+                    "Connection established {peer_id}: {endpoint:?}: {connection_id:?}: {num_established}"
+                );
+            }
+            _ => {}
         }
     }
 }
