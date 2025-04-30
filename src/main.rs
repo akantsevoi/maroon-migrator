@@ -118,6 +118,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 concurrent_dial_errors,
                 established_in,
             } => {
+                _ = concurrent_dial_errors;
+                _ = established_in;
                 println!(
                     "Connection established {peer_id}: {endpoint:?}: {connection_id:?}: {num_established}"
                 );
