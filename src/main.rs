@@ -30,7 +30,6 @@ impl From<PingEvent> for MaroonBehaviourEvent {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Parse NODE_URLS environment variable
     let node_urls: Vec<String> = std::env::var("NODE_URLS")
         .map_err(|e| format!("NODE_URLS not set: {}", e))?
         .split(',')
@@ -40,7 +39,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let self_url: String =
         std::env::var("SELF_URL").map_err(|e| format!("SELF_URL not set: {}", e))?;
 
-    // Generate identity keypair and peer ID
     let local_key = identity::Keypair::generate_ed25519();
     let local_peer_id = PeerId::from(local_key.public());
     println!("Local peer id: {:?}", local_peer_id);
@@ -48,7 +46,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let auth_config = NoiseConfig::new(&local_key)
         .map_err(|e: NoiseError| format!("noise config error: {}", e))?;
 
-    // Build the TCP transport with Tokio, Noise, and Yamux
     let transport = TokioTcpTransport::new(TcpConfig::default().nodelay(true))
         .upgrade(upgrade::Version::V1)
         .authenticate(auth_config)
