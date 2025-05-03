@@ -21,6 +21,8 @@ use libp2p::{
 use p2p::NodeState;
 use serde::{Deserialize, Serialize};
 
+#[macro_use]
+mod macros;
 mod p2p;
 
 #[tokio::main]
