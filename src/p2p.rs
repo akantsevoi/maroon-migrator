@@ -1,6 +1,7 @@
 use std::{collections::HashSet, fmt::Debug, time::Duration};
 
 use futures::StreamExt;
+use interface::{Inbox, Outbox, P2PChannels};
 use libp2p::{
     Multiaddr, PeerId,
     core::{transport::Transport as _, upgrade},
@@ -8,20 +9,17 @@ use libp2p::{
         Behaviour as GossipsubBehaviour, ConfigBuilder as GossipsubConfigBuilder,
         Event as GossipsubEvent, MessageAuthenticity, Sha256Topic, TopicHash, ValidationMode,
     },
-    identity::{self, Keypair},
+    identity,
     noise::{Config as NoiseConfig, Error as NoiseError},
     ping::{Behaviour as PingBehaviour, Config as PingConfig, Event as PingEvent},
     swarm::{Config as SwarmConfig, NetworkBehaviour, Swarm, SwarmEvent},
     tcp::{Config as TcpConfig, tokio::Transport as TcpTokioTransport},
     yamux::Config as YamuxConfig,
 };
-use serde::{Deserialize, Serialize, de::value};
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct NodeState {
-    pub value: i32,
-}
+use crate::interface;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "MaroonEvent")]
@@ -31,6 +29,7 @@ struct MaroonBehaviour {
 }
 
 pub enum MaroonEvent {
+    // TODO: remove ping behaviour? I don't think it's needed as it doesn't send any data itself and I don't use it?
     Ping(PingEvent),
     Gossipsub(GossipsubEvent),
 }
@@ -48,19 +47,13 @@ impl From<GossipsubEvent> for MaroonEvent {
 }
 
 pub struct P2P {
+    pub peer_id: PeerId,
+
     node_urls: Vec<String>,
     self_url: String,
 
-    kp: Keypair,
-    peer_id: PeerId,
-
     swarm: Swarm<MaroonBehaviour>,
     state_topic_hash: TopicHash,
-}
-
-pub struct P2PChannels {
-    pub receiver: mpsc::UnboundedReceiver<Payload>,
-    pub sender: mpsc::UnboundedSender<Payload>,
 }
 
 impl P2P {
@@ -116,7 +109,6 @@ impl P2P {
         Ok(P2P {
             node_urls,
             self_url,
-            kp,
             peer_id,
             swarm,
             state_topic_hash: state_topic.hash().clone(),
@@ -145,148 +137,90 @@ impl P2P {
             swarm.dial(addr)?;
         }
 
-        let mut alive_peer_ids: HashSet<PeerId> = HashSet::new();
-        alive_peer_ids.insert(self.peer_id);
+        let (tx, rx) = mpsc::unbounded_channel::<Inbox>();
+        let (tx_in, rx_in) = mpsc::unbounded_channel::<Outbox>();
 
-        let (tx, rx) = mpsc::unbounded_channel::<Payload>();
-        let (tx_in, mut rx_in) = mpsc::unbounded_channel::<Payload>();
-
-        tokio::spawn(async move {
-            loop {
-                tokio::select! {
-                    Some(cmd) = rx_in.recv() =>  {
-                        let message = P2pMessage {
-                            peer_id: self.peer_id,
-                            payload: cmd,
-                        };
-
-                        guard_ok!(serde_json::to_vec(&message), bytes, e, {
-                            println!("serialize message error: {e}");
-                            continue;
-                        });
-
-                        if let Err(e) = swarm
-                            .behaviour_mut()
-                            .gossipsub
-                            .publish(self.state_topic_hash.clone(), bytes){
-                                println!("publish error: {}", e);
-                            }
-                    },
-                    event = swarm.select_next_some()=>{
-                        match event{
-                        SwarmEvent::Behaviour(MaroonEvent::Gossipsub(GossipsubEvent::Message {
-                            propagation_source: _,
-                            message_id: _,
-                            message,
-                        })) => match serde_json::from_slice::<P2pMessage>(&message.data) {
-                            Ok(p2p_message) => {
-                                _ = tx.send(p2p_message.payload);
-                            }
-                            Err(e) => {
-                                println!("deserialize: {e}")
-                            }
-                        },
-                        _ => {}
-                        }
-                    }
-                }
-            }
-        });
+        start_event_loop(swarm, self.peer_id, self.state_topic_hash, rx_in, tx);
 
         return Ok(P2PChannels {
             receiver: rx,
             sender: tx_in,
         });
-
-        /*
-        loop {
-            tokio::select! {
-                _= ticker.tick() => {
-
-
-
-                }
-                event = swarm.select_next_some() => match event {
-                    SwarmEvent::NewListenAddr { address, .. } => {
-                        println!("Listening on {address}");
-                    }
-                    SwarmEvent::Behaviour(MaroonEvent::Ping(PingEvent {
-                        peer,
-                        connection,
-                        result,
-                    })) => {
-                        println!("Ping with {peer}: {result:?}: {connection:?}");
-                    }
-                    SwarmEvent::Behaviour(MaroonEvent::Gossipsub(GossipsubEvent::Message { propagation_source, message_id, message })) =>{
-                        println!("Got message {propagation_source}: {message_id:?}: {message:?}");
-                    }
-                    SwarmEvent::ConnectionClosed {
-                        peer_id,
-                        connection_id,
-                        endpoint,
-                        num_established,
-                        cause,
-                    } => {
-                        println!(
-                            "Connection closed {peer_id}: {endpoint:?}: {connection_id:?}: {num_established}: {cause:?}"
-                        );
-                        alive_peer_ids.remove(&peer_id);
-                        recalculate_order(&alive_peer_ids);
-
-                    }
-                    SwarmEvent::ConnectionEstablished {
-                        peer_id,
-                        connection_id,
-                        endpoint,
-                        num_established,
-                        concurrent_dial_errors,
-                        established_in,
-                    } => {
-                        _ = concurrent_dial_errors;
-                        _ = established_in;
-                        println!(
-                            "Connection established {peer_id}: {endpoint:?}: {connection_id:?}: {num_established}"
-                        );
-                        alive_peer_ids.insert(peer_id);
-                        recalculate_order(&alive_peer_ids);
-
-                    }
-
-                    _ => {}
-                }
-            };
-        }
-        */
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", content = "data")]
-pub enum Payload {
-    State(NodeState),
+fn start_event_loop(
+    mut swarm: Swarm<MaroonBehaviour>,
+    peer_id: PeerId,
+    topic_hash: TopicHash,
+    rx_in: mpsc::UnboundedReceiver<Outbox>,
+    tx: mpsc::UnboundedSender<Inbox>,
+) {
+    let mut alive_peer_ids: HashSet<PeerId> = HashSet::new();
+    alive_peer_ids.insert(peer_id);
+
+    let mut rx_in = rx_in;
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                Some(Outbox::State(state)) = rx_in.recv() =>  {
+                    let message = P2pMessage {
+                        peer_id: peer_id,
+                        payload: Outbox::State(state),
+                    };
+
+                    guard_ok!(serde_json::to_vec(&message), bytes, e, {
+                        println!("serialize message error: {e}");
+                        continue;
+                    });
+
+                    if let Err(e) = swarm
+                        .behaviour_mut()
+                        .gossipsub
+                        .publish(topic_hash.clone(), bytes){
+                            println!("publish error: {}", e);
+                        }
+                },
+                event = swarm.select_next_some()=>{
+                    match event{
+                    SwarmEvent::Behaviour(MaroonEvent::Gossipsub(GossipsubEvent::Message {
+                        propagation_source: _,
+                        message_id: _,
+                        message,
+                    })) => match serde_json::from_slice::<P2pMessage>(&message.data) {
+                        Ok(p2p_message) => {
+                            match p2p_message.payload {
+                               Outbox::State(state) => {
+                                _=tx.send(Inbox::State((p2p_message.peer_id, state)));
+                               },
+                            }
+
+                        }
+                        Err(e) => {
+                            println!("swarm deserialize: {e}")
+                        }
+                    },
+                    SwarmEvent::ConnectionEstablished { peer_id, .. } =>{
+                        alive_peer_ids.insert(peer_id);
+                        _=tx.send(Inbox::Nodes(alive_peer_ids.clone()));
+                    },
+                    SwarmEvent::ConnectionClosed { peer_id, ..}=>{
+                        alive_peer_ids.remove(&peer_id);
+                        _=tx.send(Inbox::Nodes(alive_peer_ids.clone()));
+                    },
+                    _ => {}
+                    }
+                }
+            }
+        }
+    });
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct P2pMessage {
-    pub peer_id: PeerId,
-    pub payload: Payload,
-}
+    peer_id: PeerId,
 
-// Public interface. Make it as trait??
-impl P2P {
-    pub fn broadcast(&mut self, state: NodeState) -> Result<(), Box<dyn std::error::Error>> {
-        let message = P2pMessage {
-            peer_id: self.peer_id,
-            payload: Payload::State(state),
-        };
-
-        let bytes = serde_json::to_vec(&message)?;
-        _ = self
-            .swarm
-            .behaviour_mut()
-            .gossipsub
-            .publish(self.state_topic_hash.clone(), bytes)?;
-
-        Ok(())
-    }
+    // Only outbox can be sent. If more fields will be needed on interface vs network - split into two types
+    // This is the only information in that enum that node can send to each other
+    payload: Outbox,
 }
