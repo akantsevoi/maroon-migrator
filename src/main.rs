@@ -1,32 +1,12 @@
-use std::collections::HashSet;
+#[macro_use]
+mod macros;
 
-use futures::StreamExt;
-use libp2p::{
-    Multiaddr, PeerId,
-    core::{transport::Transport as _, upgrade},
-    identity,
-    noise::{Config as NoiseConfig, Error as NoiseError},
-    ping::{Behaviour as PingBehaviour, Config as PingConfig, Event as PingEvent},
-    swarm::{Config as SwarmConfig, NetworkBehaviour, Swarm, SwarmEvent},
-    tcp::{Config as TcpConfig, tokio::Transport as TokioTcpTransport},
-    yamux::Config as YamuxConfig,
-};
+mod interface;
+mod p2p;
 
-#[derive(NetworkBehaviour)]
-#[behaviour(out_event = "MaroonBehaviourEvent")]
-struct MaroonBehaviour {
-    ping: PingBehaviour,
-}
-
-pub enum MaroonBehaviourEvent {
-    Ping(PingEvent),
-}
-
-impl From<PingEvent> for MaroonBehaviourEvent {
-    fn from(e: PingEvent) -> Self {
-        MaroonBehaviourEvent::Ping(e)
-    }
-}
+use interface::{Inbox, NodeState, Outbox};
+use libp2p::PeerId;
+use std::{collections::HashSet, time::Duration};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,100 +19,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let self_url: String =
         std::env::var("SELF_URL").map_err(|e| format!("SELF_URL not set: {}", e))?;
 
-    let local_key = identity::Keypair::generate_ed25519();
-    let local_peer_id = PeerId::from(local_key.public());
-    println!("Local peer id: {:?}", local_peer_id);
+    let p2p = p2p::P2P::new(node_urls, self_url)?;
+    let my_id = p2p.peer_id;
+    let mut p2_pchannels = p2p.start()?;
 
-    let auth_config = NoiseConfig::new(&local_key)
-        .map_err(|e: NoiseError| format!("noise config error: {}", e))?;
+    let mut ticker = tokio::time::interval(Duration::from_secs(5));
 
-    let transport = TokioTcpTransport::new(TcpConfig::default().nodelay(true))
-        .upgrade(upgrade::Version::V1)
-        .authenticate(auth_config)
-        .multiplex(YamuxConfig::default())
-        .boxed();
-
-    let behaviour = MaroonBehaviour {
-        ping: PingBehaviour::new(
-            PingConfig::new()
-                .with_interval(std::time::Duration::from_secs(5))
-                .with_timeout(std::time::Duration::from_secs(10)),
-        ),
-    };
-
-    let mut swarm = Swarm::new(
-        transport,
-        behaviour,
-        local_peer_id,
-        SwarmConfig::with_tokio_executor()
-            .with_idle_connection_timeout(std::time::Duration::from_secs(60)),
-    );
-
-    swarm.listen_on(self_url.parse()?)?;
-
-    for url in node_urls {
-        if url == self_url {
-            continue;
-        }
-
-        let addr: Multiaddr = url.parse()?;
-        println!("Dialing {addr} …");
-        swarm.dial(addr)?;
-    }
-
-    let mut alive_peer_ids: HashSet<PeerId> = HashSet::new();
-    alive_peer_ids.insert(local_peer_id);
-
+    let mut counter: i32 = 0;
     loop {
-        match swarm.select_next_some().await {
-            SwarmEvent::NewListenAddr { address, .. } => {
-                println!("Listening on {address}");
-            }
-            SwarmEvent::Behaviour(MaroonBehaviourEvent::Ping(PingEvent {
-                peer,
-                connection,
-                result,
-            })) => {
-                println!("Ping with {peer}: {result:?}: {connection:?}");
-            }
-            SwarmEvent::ConnectionClosed {
-                peer_id,
-                connection_id,
-                endpoint,
-                num_established,
-                cause,
-            } => {
-                println!(
-                    "Connection closed {peer_id}: {endpoint:?}: {connection_id:?}: {num_established}: {cause:?}"
-                );
-                alive_peer_ids.remove(&peer_id);
-            }
-            SwarmEvent::ConnectionEstablished {
-                peer_id,
-                connection_id,
-                endpoint,
-                num_established,
-                concurrent_dial_errors,
-                established_in,
-            } => {
-                _ = concurrent_dial_errors;
-                _ = established_in;
-                println!(
-                    "Connection established {peer_id}: {endpoint:?}: {connection_id:?}: {num_established}"
-                );
-                alive_peer_ids.insert(peer_id);
-            }
-            _ => {}
-        }
+        tokio::select! {
+            _ = ticker.tick() => {
+                if let Err(e)=p2_pchannels.sender.send(Outbox::State(NodeState{value:counter})) {
+                    println!("main send: {e}");
+                    continue;
+                };
+                counter+=1;
+            },
+            Some(payload) = p2_pchannels.receiver.recv() =>  {
+                match payload {
+                    Inbox::State((peer_id, state))=>{
+                        println!("got update for {peer_id}: {state:?}");
+                    },
+                    Inbox::Nodes(nodes)=>{
+                        recalculate_order(my_id ,&nodes);
+                    },
+                }
 
-        recalculate_order(&alive_peer_ids);
+            }
+        }
     }
 }
 
-fn recalculate_order(ids: &HashSet<PeerId>) {
+fn recalculate_order(self_id: PeerId, ids: &HashSet<PeerId>) {
     let mut peer_ids: Vec<&PeerId> = ids.iter().collect();
 
     peer_ids.sort();
+    let delay_factor = peer_ids
+        .iter()
+        .position(|e| **e == self_id)
+        .expect("self peer id should exist here. Otherwise it's stupid");
 
-    println!("nodes order: {:?}", peer_ids);
+    println!(
+        "My delay factor is {}! Nodes order: {:?}",
+        delay_factor, peer_ids
+    );
 }
