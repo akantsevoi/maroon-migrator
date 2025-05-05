@@ -1,8 +1,12 @@
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fmt::Debug};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+};
 use tokio::sync::mpsc;
 
+// Inter-modules communication
 pub struct P2PChannels {
     pub receiver: mpsc::UnboundedReceiver<Inbox>,
     pub sender: mpsc::UnboundedSender<Outbox>,
@@ -21,7 +25,14 @@ pub enum Inbox {
     Nodes(HashSet<PeerId>),
 }
 
+// Node state
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NodeState {
-    pub value: i32,
+    pub offsets: HashMap<KeyRange, KeyOffset>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct KeyRange(u64);
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct KeyOffset(u64);

@@ -4,16 +4,19 @@ mod macros;
 mod interface;
 mod p2p;
 
-use interface::{Inbox, NodeState, Outbox};
+use interface::{Inbox, KeyOffset, KeyRange, NodeState, Outbox};
 use libp2p::PeerId;
-use std::{collections::HashSet, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Duration,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let node_urls: Vec<String> = std::env::var("NODE_URLS")
         .map_err(|e| format!("NODE_URLS not set: {}", e))?
         .split(',')
-        .map(|s| s.to_string())
+        .map(String::from)
         .collect();
 
     let self_url: String =
@@ -24,16 +27,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut p2_pchannels = p2p.start()?;
 
     let mut ticker = tokio::time::interval(Duration::from_secs(5));
+    let vector_state = HashMap::<KeyRange, KeyOffset>::new();
 
-    let mut counter: i32 = 0;
     loop {
         tokio::select! {
+            // TODO: check what happens if I have two Futures that are ready
+            // what happens? Will it cancel one of it?
             _ = ticker.tick() => {
-                if let Err(e)=p2_pchannels.sender.send(Outbox::State(NodeState{value:counter})) {
+                if let Err(e)=p2_pchannels.sender.send( Outbox::State(NodeState{offsets: vector_state.clone()})) {
                     println!("main send: {e}");
                     continue;
                 };
-                counter+=1;
             },
             Some(payload) = p2_pchannels.receiver.recv() =>  {
                 match payload {
