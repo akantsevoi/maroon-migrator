@@ -169,7 +169,7 @@ fn start_event_loop(
                         payload: Outbox::State(state),
                     };
 
-                    guard_ok!(serde_json::to_vec(&message), bytes, e, {
+                    let bytes = guard_ok!(serde_json::to_vec(&message), e, {
                         println!("serialize message error: {e}");
                         continue;
                     });
