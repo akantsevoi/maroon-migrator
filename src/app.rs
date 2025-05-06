@@ -13,6 +13,9 @@ pub struct App {
     peer_id: PeerId,
     channels: P2PChannels,
 
+    /// offsets for the current node
+    self_offsets: HashMap<KeyRange, KeyOffset>,
+
     /// offsets for all the nodes this one knows about(+ itself)
     offsets: HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
 
@@ -26,10 +29,11 @@ pub struct App {
 impl App {
     pub fn new(peer_id: PeerId, channels: P2PChannels) -> Result<App, Box<dyn std::error::Error>> {
         Ok(App {
-            consensus_nodes: NonZeroUsize::new(2).unwrap(),
+            consensus_nodes: NonZeroUsize::new(2).unwrap(), // TODO: move to constructor+env variables
             peer_id,
             channels,
             offsets: HashMap::new(),
+            self_offsets: HashMap::new(),
             consensus_offset: HashMap::new(),
         })
     }
@@ -37,12 +41,11 @@ impl App {
     /// blocks the thread
     pub async fn start_work(&mut self, mut shutdown: oneshot::Receiver<()>) {
         let mut ticker = tokio::time::interval(Duration::from_secs(5));
-        let vector_state = HashMap::<KeyRange, KeyOffset>::new();
 
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
-                    if let Err(e)=self.channels.sender.send( Outbox::State(NodeState{offsets: vector_state.clone()})) {
+                    if let Err(e)=self.channels.sender.send( Outbox::State(NodeState{offsets: self.self_offsets.clone()})) {
                         println!("main send: {e}");
                         continue;
                     };
@@ -57,7 +60,7 @@ impl App {
                                     self.offsets.insert(k, HashMap::from([(peer_id, v)]));
                                 }
                             }
-                            self.recalculate_consensus_offset();
+                            self.recalculate_consensus_offsets();
                         },
                         Inbox::Nodes(nodes)=>{
                             recalculate_order(self.peer_id ,&nodes);
@@ -72,7 +75,7 @@ impl App {
         }
     }
 
-    fn recalculate_consensus_offset(&mut self) {
+    fn recalculate_consensus_offsets(&mut self) {
         // TODO: Should I be worried that I might have some stale values in consensus_offset?
         for (k, v) in &self.offsets {
             if let Some(max) = consensus_maximum(&v, self.consensus_nodes) {
@@ -165,7 +168,7 @@ mod tests {
             .expect("no errors");
 
         // wait until app consumes the event
-        time::sleep(Duration::from_secs(1)).await;
+        time::sleep(Duration::from_millis(10)).await;
         shutdown_tx.send(()).expect("no error on shutdown");
 
         let calculated_offset = handle.await.expect("should get proper map");
