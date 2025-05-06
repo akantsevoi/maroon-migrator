@@ -22,9 +22,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let self_url: String =
         std::env::var("SELF_URL").map_err(|e| format!("SELF_URL not set: {}", e))?;
 
-    let p2p = p2p::P2P::new(node_urls, self_url)?;
+    let _tick = Duration::from_millis(
+        std::env::var("TICK")
+            .unwrap_or("60".to_string())
+            .parse::<u64>()
+            .unwrap(),
+    );
+
+    let mut p2p = p2p::P2P::new(node_urls, self_url)?;
     let my_id = p2p.peer_id;
-    let mut p2_pchannels = p2p.start()?;
+
+    let mut p2p_channels = p2p.interface_channels();
+    _ = p2p.prepare()?;
+
+    tokio::spawn(async move {
+        p2p.start_event_loop().await;
+    });
 
     let mut ticker = tokio::time::interval(Duration::from_secs(5));
     let vector_state = HashMap::<KeyRange, KeyOffset>::new();
@@ -34,12 +47,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // TODO: check what happens if I have two Futures that are ready
             // what happens? Will it cancel one of it?
             _ = ticker.tick() => {
-                if let Err(e)=p2_pchannels.sender.send( Outbox::State(NodeState{offsets: vector_state.clone()})) {
+                if let Err(e)=p2p_channels.sender.send( Outbox::State(NodeState{offsets: vector_state.clone()})) {
                     println!("main send: {e}");
                     continue;
                 };
             },
-            Some(payload) = p2_pchannels.receiver.recv() =>  {
+            Some(payload) = p2p_channels.receiver.recv() =>  {
                 match payload {
                     Inbox::State((peer_id, state))=>{
                         println!("got update for {peer_id}: {state:?}");

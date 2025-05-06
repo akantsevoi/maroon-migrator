@@ -17,7 +17,7 @@ use libp2p::{
     yamux::Config as YamuxConfig,
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::interface;
 
@@ -29,7 +29,6 @@ struct MaroonBehaviour {
 }
 
 pub enum MaroonEvent {
-    // TODO: remove ping behaviour? I don't think it's needed as it doesn't send any data itself and I don't use it?
     Ping(PingEvent),
     Gossipsub(GossipsubEvent),
 }
@@ -46,6 +45,19 @@ impl From<GossipsubEvent> for MaroonEvent {
     }
 }
 
+/// Internal structure that holds channels for inter-module communication
+struct Channels {
+    tx_in: UnboundedSender<Inbox>,
+    rx_in: Owned<UnboundedReceiver<Inbox>>,
+    tx_out: UnboundedSender<Outbox>,
+    rx_out: UnboundedReceiver<Outbox>,
+}
+
+enum Owned<T> {
+    Here(T),
+    Moved,
+}
+
 pub struct P2P {
     pub peer_id: PeerId,
 
@@ -54,6 +66,8 @@ pub struct P2P {
 
     swarm: Swarm<MaroonBehaviour>,
     state_topic_hash: TopicHash,
+
+    channels: Channels,
 }
 
 impl P2P {
@@ -106,24 +120,27 @@ impl P2P {
                 .with_idle_connection_timeout(Duration::from_secs(60)),
         );
 
+        let (tx_in, rx_in) = mpsc::unbounded_channel::<Inbox>();
+        let (tx_out, rx_out) = mpsc::unbounded_channel::<Outbox>();
+
         Ok(P2P {
             node_urls,
             self_url,
             peer_id,
             swarm,
             state_topic_hash: state_topic.hash().clone(),
+            channels: Channels {
+                tx_in,
+                rx_in: Owned::Here(rx_in),
+                tx_out,
+                rx_out,
+            },
         })
     }
 
-    // spawns a separate tokio thread
-    // TODO:
-    // consumes self, so it can't be used later. Is it a good design? Looks suspicious
-    // - but I need swarm in a separate thread. So I would need to use mutex or smth like this
-    // - Do I?
-    pub fn start(self) -> Result<P2PChannels, Box<dyn std::error::Error>> {
-        let mut swarm = self.swarm;
-
-        swarm
+    /// starts listening and performs all the bindings but doesn't react yeat
+    pub fn prepare(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        self.swarm
             .listen_on(self.self_url.parse()?)
             .map_err(|e| format!("swarm.listen {e}"))?;
 
@@ -134,38 +151,48 @@ impl P2P {
 
             let addr: Multiaddr = url.parse()?;
             println!("Dialing {addr} …");
-            swarm.dial(addr)?;
+            self.swarm.dial(addr)?;
         }
 
-        let (tx, rx) = mpsc::unbounded_channel::<Inbox>();
-        let (tx_in, rx_in) = mpsc::unbounded_channel::<Outbox>();
-
-        start_event_loop(swarm, self.peer_id, self.state_topic_hash, rx_in, tx);
-
-        return Ok(P2PChannels {
-            receiver: rx,
-            sender: tx_in,
-        });
+        Ok(())
     }
-}
 
-fn start_event_loop(
-    mut swarm: Swarm<MaroonBehaviour>,
-    peer_id: PeerId,
-    topic_hash: TopicHash,
-    rx_in: mpsc::UnboundedReceiver<Outbox>,
-    tx: mpsc::UnboundedSender<Inbox>,
-) {
-    let mut alive_peer_ids: HashSet<PeerId> = HashSet::new();
-    alive_peer_ids.insert(peer_id);
+    /// Gets p2p channels that will be used for communication
+    /// can be called only once
+    pub fn interface_channels(&mut self) -> P2PChannels {
+        let mut moved = Owned::Moved;
+        std::mem::swap(&mut moved, &mut self.channels.rx_in);
 
-    let mut rx_in = rx_in;
-    tokio::spawn(async move {
+        match moved {
+            Owned::Moved => {
+                todo!(
+                    "already moved. This fn can be called only once. Maybe return proper error here?"
+                )
+            }
+            Owned::Here(rx_in) => {
+                return P2PChannels {
+                    receiver: rx_in,
+                    sender: self.channels.tx_out.clone(),
+                };
+            }
+        }
+    }
+
+    /// blocking operation, so you might want to spawn it on a separate thread
+    /// after calling this - channels at `interface_channels` will start to send messages
+    /// TODO: add stop/finish channel
+    pub async fn start_event_loop(self) {
+        let mut alive_peer_ids: HashSet<PeerId> = HashSet::new();
+        alive_peer_ids.insert(self.peer_id);
+        let mut swarm = self.swarm;
+
+        let mut rx_out = self.channels.rx_out;
+        let tx_in = self.channels.tx_in;
         loop {
             tokio::select! {
-                Some(Outbox::State(state)) = rx_in.recv() =>  {
+                Some(Outbox::State(state)) = rx_out.recv() =>  {
                     let message = P2pMessage {
-                        peer_id: peer_id,
+                        peer_id: self.peer_id,
                         payload: Outbox::State(state),
                     };
 
@@ -177,7 +204,7 @@ fn start_event_loop(
                     if let Err(e) = swarm
                         .behaviour_mut()
                         .gossipsub
-                        .publish(topic_hash.clone(), bytes){
+                        .publish(self.state_topic_hash.clone(), bytes){
                             println!("publish error: {}", e);
                         }
                 },
@@ -191,7 +218,7 @@ fn start_event_loop(
                         Ok(p2p_message) => {
                             match p2p_message.payload {
                                Outbox::State(state) => {
-                                _=tx.send(Inbox::State((p2p_message.peer_id, state)));
+                                _=tx_in.send(Inbox::State((p2p_message.peer_id, state)));
                                },
                             }
 
@@ -200,20 +227,23 @@ fn start_event_loop(
                             println!("swarm deserialize: {e}")
                         }
                     },
+                    SwarmEvent::Behaviour(MaroonEvent::Ping(PingEvent { .. })) =>{
+                        // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
+                    },
                     SwarmEvent::ConnectionEstablished { peer_id, .. } =>{
                         alive_peer_ids.insert(peer_id);
-                        _=tx.send(Inbox::Nodes(alive_peer_ids.clone()));
+                        _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
                     },
                     SwarmEvent::ConnectionClosed { peer_id, ..}=>{
                         alive_peer_ids.remove(&peer_id);
-                        _=tx.send(Inbox::Nodes(alive_peer_ids.clone()));
+                        _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
                     },
                     _ => {}
                     }
                 }
             }
         }
-    });
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
