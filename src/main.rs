@@ -7,6 +7,7 @@ mod p2p;
 
 use app::App;
 use std::time::Duration;
+use tokio::sync::oneshot;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -38,7 +39,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut app = App::new(my_id, p2p_channels)?;
 
-    app.start_work().await;
+    let (_shutdown_tx, shutdown_rx) = oneshot::channel();
+    app.start_work(shutdown_rx).await;
 
     Ok(())
 }
