@@ -24,7 +24,7 @@ First part of the plan is to get the reliable engine that will get requests from
 - [X] MN. node order + calculating delays
     - [X] MN. establish p2p connection between all the nodes(exchange public keys) + send pings
     - [X] MN. calculate delay for each node
-- [ ] MN. regularly exchange current vector state to all MNs
+- [X] MN. regularly exchange current vector state to all MNs
 - [ ] MN. leader regularly publishes vector commited updates
 - [ ] write script that finds leader, pauses the container and then restores it after a new leader elected
 - [ ] G. create a library/main script that can send requests to MN.
