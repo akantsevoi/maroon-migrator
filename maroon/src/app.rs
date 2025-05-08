@@ -85,6 +85,8 @@ impl App {
     }
 }
 
+/// returns maximum offset among peers keeping in mind the `n_consensus`
+/// if `n_consensus` is 2 - it will find the maximum number that is present in at least 2 peers
 fn consensus_maximum(
     map: &HashMap<PeerId, KeyOffset>,
     n_consensus: NonZeroUsize,
