@@ -118,6 +118,13 @@ fn recalculate_order(self_id: PeerId, ids: &HashSet<PeerId>) {
 }
 
 #[cfg(test)]
+impl App {
+    pub fn new_test_instance(channels: P2PChannels) -> App {
+        App::new(PeerId::random(), channels).expect("failed to create test App instance")
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use tokio::{sync::mpsc, time};
@@ -131,14 +138,10 @@ mod tests {
         let n1_peer_id = PeerId::random();
         let n2_peer_id = PeerId::random();
 
-        let mut app = App::new(
-            PeerId::random(),
-            P2PChannels {
-                receiver: rx_in,
-                sender: tx_out,
-            },
-        )
-        .expect("App::new should succeed");
+        let mut app = App::new_test_instance(P2PChannels {
+            receiver: rx_in,
+            sender: tx_out,
+        });
 
         let handle = tokio::spawn(async move {
             app.loop_until_shutdown(shutdown_rx).await;
