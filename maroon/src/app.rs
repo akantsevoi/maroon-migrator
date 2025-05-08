@@ -38,8 +38,8 @@ impl App {
         })
     }
 
-    /// blocks the thread
-    pub async fn start_work(&mut self, mut shutdown: oneshot::Receiver<()>) {
+    /// starts a loop that processes events and executes logic
+    pub async fn loop_until_shutdown(&mut self, mut shutdown: oneshot::Receiver<()>) {
         let mut ticker = tokio::time::interval(Duration::from_secs(5));
 
         loop {
@@ -139,7 +139,7 @@ mod tests {
         .expect("App::new should succeed");
 
         let handle = tokio::spawn(async move {
-            app.start_work(shutdown_rx).await;
+            app.loop_until_shutdown(shutdown_rx).await;
             app.consensus_offset
         });
 
