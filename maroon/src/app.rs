@@ -190,29 +190,40 @@ mod tests {
         let p_id_2 = PeerId::random();
         let p_id_3 = PeerId::random();
 
-        assert_eq!(
-            consensus_maximum(&HashMap::new(), NonZeroUsize::new(2).unwrap(),),
-            None,
-        );
+        struct Case {
+            map: Vec<(PeerId, KeyOffset)>,
+            want: Option<KeyOffset>,
+        }
 
-        assert_eq!(
-            consensus_maximum(
-                &HashMap::from([(p_id_1, KeyOffset(10))]),
-                NonZeroUsize::new(2).unwrap(),
-            ),
-            None,
-        );
-
-        assert_eq!(
-            consensus_maximum(
-                &HashMap::from([
+        let cases = [
+            Case {
+                map: vec![],
+                want: None,
+            },
+            Case {
+                map: vec![(p_id_1, KeyOffset(10))],
+                want: None,
+            },
+            Case {
+                map: vec![
                     (p_id_1, KeyOffset(10)),
                     (p_id_2, KeyOffset(2)),
-                    (p_id_3, KeyOffset(4))
-                ]),
-                NonZeroUsize::new(2).unwrap(),
-            ),
-            Some(&KeyOffset(4)),
-        );
+                    (p_id_3, KeyOffset(4)),
+                ],
+                want: Some(KeyOffset(4)),
+            },
+        ];
+
+        for (i, case) in cases.iter().enumerate() {
+            let hm: HashMap<_, _> = case.map.clone().into_iter().collect();
+            assert_eq!(
+                consensus_maximum(&hm, NonZeroUsize::new(2).unwrap()).copied(),
+                case.want,
+                "case #{} failed: {:?} → {:?}",
+                i,
+                case.map,
+                case.want
+            );
+        }
     }
 }
