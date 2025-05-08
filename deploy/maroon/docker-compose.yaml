@@ -2,7 +2,7 @@ services:
   mn:
     build:
       context: ..
-      dockerfile: maroon/Dockerfile
+      dockerfile: deploy/maroon/Dockerfile
     deploy:
       replicas: ${N:-3}
     environment:

@@ -1,29 +1,8 @@
-[package]
-name = "maroon-migrator"
-version = "0.1.0"
-edition = "2024"
-rust-version = "1.86.0"
-
-[dependencies]
-env_logger = "0.11.6"
-etcd-client = "0.14.1"
-libp2p = { version = "0.55.0", default-features = false, features = [
-    "tcp",
-    "tokio",
-    "noise",
-    "yamux",
-    "gossipsub",
-    "ping",
-    "macros",
-    "plaintext",
-    "serde",
-    "gossipsub",
-] }
-log = "0.4.26"
-tokio = { version = "1.43.0", features = ["full"] }
-futures = "0.3"
-serde = { version = "1.0.219", features = ["derive"] }
-rand = "0.9.1"
-chrono = "0.4.41"
-serde_json = "1.0.140"
+[workspace]
+members = [
+  "common",
+  "gateway",
+  "maroon",
+]
+resolver = "3"
 
