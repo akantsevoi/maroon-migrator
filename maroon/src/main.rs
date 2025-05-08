@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut app = App::new(my_id, p2p_channels)?;
 
     let (_shutdown_tx, shutdown_rx) = oneshot::channel();
-    app.start_work(shutdown_rx).await;
+    app.loop_until_shutdown(shutdown_rx).await;
 
     Ok(())
 }

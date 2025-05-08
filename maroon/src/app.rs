@@ -38,8 +38,8 @@ impl App {
         })
     }
 
-    /// blocks the thread
-    pub async fn start_work(&mut self, mut shutdown: oneshot::Receiver<()>) {
+    /// starts a loop that processes events and executes logic
+    pub async fn loop_until_shutdown(&mut self, mut shutdown: oneshot::Receiver<()>) {
         let mut ticker = tokio::time::interval(Duration::from_secs(5));
 
         loop {
@@ -85,6 +85,8 @@ impl App {
     }
 }
 
+/// returns maximum offset among peers keeping in mind the `n_consensus`
+/// if `n_consensus` is 2 - it will find the maximum number that is present in at least 2 peers
 fn consensus_maximum(
     map: &HashMap<PeerId, KeyOffset>,
     n_consensus: NonZeroUsize,
@@ -116,6 +118,13 @@ fn recalculate_order(self_id: PeerId, ids: &HashSet<PeerId>) {
 }
 
 #[cfg(test)]
+impl App {
+    pub fn new_test_instance(channels: P2PChannels) -> App {
+        App::new(PeerId::random(), channels).expect("failed to create test App instance")
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use tokio::{sync::mpsc, time};
@@ -129,17 +138,13 @@ mod tests {
         let n1_peer_id = PeerId::random();
         let n2_peer_id = PeerId::random();
 
-        let mut app = App::new(
-            PeerId::random(),
-            P2PChannels {
-                receiver: rx_in,
-                sender: tx_out,
-            },
-        )
-        .expect("App::new should succeed");
+        let mut app = App::new_test_instance(P2PChannels {
+            receiver: rx_in,
+            sender: tx_out,
+        });
 
         let handle = tokio::spawn(async move {
-            app.start_work(shutdown_rx).await;
+            app.loop_until_shutdown(shutdown_rx).await;
             app.consensus_offset
         });
 
@@ -185,29 +190,40 @@ mod tests {
         let p_id_2 = PeerId::random();
         let p_id_3 = PeerId::random();
 
-        assert_eq!(
-            consensus_maximum(&HashMap::new(), NonZeroUsize::new(2).unwrap(),),
-            None,
-        );
+        struct Case {
+            map: Vec<(PeerId, KeyOffset)>,
+            want: Option<KeyOffset>,
+        }
 
-        assert_eq!(
-            consensus_maximum(
-                &HashMap::from([(p_id_1, KeyOffset(10))]),
-                NonZeroUsize::new(2).unwrap(),
-            ),
-            None,
-        );
-
-        assert_eq!(
-            consensus_maximum(
-                &HashMap::from([
+        let cases = [
+            Case {
+                map: vec![],
+                want: None,
+            },
+            Case {
+                map: vec![(p_id_1, KeyOffset(10))],
+                want: None,
+            },
+            Case {
+                map: vec![
                     (p_id_1, KeyOffset(10)),
                     (p_id_2, KeyOffset(2)),
-                    (p_id_3, KeyOffset(4))
-                ]),
-                NonZeroUsize::new(2).unwrap(),
-            ),
-            Some(&KeyOffset(4)),
-        );
+                    (p_id_3, KeyOffset(4)),
+                ],
+                want: Some(KeyOffset(4)),
+            },
+        ];
+
+        for (i, case) in cases.iter().enumerate() {
+            let hm: HashMap<_, _> = case.map.clone().into_iter().collect();
+            assert_eq!(
+                consensus_maximum(&hm, NonZeroUsize::new(2).unwrap()).copied(),
+                case.want,
+                "case #{} failed: {:?} → {:?}",
+                i,
+                case.map,
+                case.want
+            );
+        }
     }
 }
