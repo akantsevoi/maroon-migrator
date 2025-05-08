@@ -16,20 +16,20 @@ run-local:
 	NODE_URLS=/ip4/127.0.0.1/tcp/3000,/ip4/127.0.0.1/tcp/3001,/ip4/127.0.0.1/tcp/3002 \
 	SELF_URL=/ip4/127.0.0.1/tcp/3000 \
 	RUST_LOG=debug \
-		cargo run
+		cargo run -p maroon
 
 shutdown:
-	docker compose -f maroon/docker-compose.yaml down --remove-orphans
-	docker compose -f etcd/docker-compose.yaml down --remove-orphans
+	docker compose -f deploy/maroon/docker-compose.yaml down --remove-orphans
+	docker compose -f deploy/etcd/docker-compose.yaml down --remove-orphans
 	docker network rm etcd
 
 start-etcd:
 	# Create network for etcd and maroon docker composes to talk to each other
 	docker network create etcd
-	docker compose -f etcd/docker-compose.yaml up -d
+	docker compose -f deploy/etcd/docker-compose.yaml up -d
 
 build-mn:
-	docker build . -f maroon/Dockerfile --tag=maroon-mn
+	docker build . -f deploy/maroon/Dockerfile --tag=maroon-mn
 
 run-compose:
-	N=${N:-5} docker compose -f maroon/docker-compose.yaml up 
+	N=${N:-5} docker compose -f deploy/maroon/docker-compose.yaml up 
