@@ -32,7 +32,6 @@ pub enum Response {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Transaction {
     pub id: TransactionID,
-    pub data: String,
     pub status: TxStatus,
 }
 

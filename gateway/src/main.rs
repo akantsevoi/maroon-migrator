@@ -171,6 +171,7 @@ impl P2P {
                 event = swarm.select_next_some()=>{
                     match event{
                         SwarmEvent::Behaviour(GatewayEvent::RequestResponse(gm_request_response)) => {
+                            println!("RequestResponse: {:?}", gm_request_response);
                             match gm_request_response{
                                 GMEvent::Message{ message, .. } => {
                                     match message{
@@ -231,7 +232,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .tx_request
         .send(Request::NewTransaction(Transaction {
             id: TransactionID(1),
-            data: "some data".to_string(),
             status: TxStatus::Created,
         }))
         .unwrap();
