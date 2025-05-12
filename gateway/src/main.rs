@@ -2,6 +2,10 @@ use common::{
     gm_request_response::{
         self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response, Transaction, TxStatus,
     },
+    meta_exchange::{
+        self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Request as MERequest,
+        Response as MEResponse, Role,
+    },
     range_key::TransactionID,
 };
 use futures::StreamExt;
@@ -24,10 +28,12 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 struct GatewayBehaviour {
     ping: PingBehaviour,
     request_response: GMBehaviour,
+    meta_exchange: MetaExchangeBehaviour,
 }
 pub enum GatewayEvent {
     Ping(PingEvent),
     RequestResponse(GMEvent),
+    MetaExchange(MEEvent),
 }
 
 impl From<PingEvent> for GatewayEvent {
@@ -39,6 +45,12 @@ impl From<PingEvent> for GatewayEvent {
 impl From<GMEvent> for GatewayEvent {
     fn from(e: GMEvent) -> Self {
         GatewayEvent::RequestResponse(e)
+    }
+}
+
+impl From<MEEvent> for GatewayEvent {
+    fn from(e: MEEvent) -> Self {
+        GatewayEvent::MetaExchange(e)
     }
 }
 
@@ -91,6 +103,7 @@ impl P2P {
                     .with_timeout(Duration::from_secs(10)),
             ),
             request_response: gm_request_response::create_behaviour(ProtocolSupport::Outbound),
+            meta_exchange: meta_exchange::create_behaviour(),
         };
 
         let swarm = Swarm::new(
@@ -183,6 +196,24 @@ impl P2P {
                                     }
                                 },
                                 _ => {},
+                            }
+                        },
+                        SwarmEvent::Behaviour(GatewayEvent::MetaExchange(meta_exchange)) =>{
+                            println!("MetaExchange: {:?}", meta_exchange);
+                            match meta_exchange{
+                                MEEvent::Message{ message, .. } => {
+                                    match message{
+                                        RequestResponseMessage::Response{request_id, response} => {
+                                            println!("MetaExchangeResponse: {:?} {:?}", request_id, response);
+                                        },
+                                        RequestResponseMessage::Request{ channel,..} => {
+                                            let res = swarm.behaviour_mut().meta_exchange.send_response(channel, MEResponse{role: Role::Gateway});
+                                            println!("MetaExchangeRequestRes: {:?}", res);
+                                        },
+                                        _=>{},
+                                    }
+                                },
+                                _=>{},
                             }
                         },
                     // SwarmEvent::Behaviour(GatewayEvent::Ping(PingEvent { .. })) =>{

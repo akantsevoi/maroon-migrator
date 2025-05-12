@@ -1,5 +1,9 @@
-use common::gm_request_response::{
-    self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response,
+use common::{
+    gm_request_response::{self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response},
+    meta_exchange::{
+        self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Request as MERequest,
+        Response as MEResponse, Role,
+    },
 };
 use futures::StreamExt;
 use libp2p::{
@@ -30,12 +34,14 @@ struct MaroonBehaviour {
     ping: PingBehaviour,
     gossipsub: GossipsubBehaviour,
     request_response: GMBehaviour,
+    meta_exchange: MetaExchangeBehaviour,
 }
 
 pub enum MaroonEvent {
     Ping(PingEvent),
     Gossipsub(GossipsubEvent),
     RequestResponse(GMEvent),
+    MetaExchange(MEEvent),
 }
 
 impl From<PingEvent> for MaroonEvent {
@@ -53,6 +59,12 @@ impl From<GossipsubEvent> for MaroonEvent {
 impl From<GMEvent> for MaroonEvent {
     fn from(e: GMEvent) -> Self {
         MaroonEvent::RequestResponse(e)
+    }
+}
+
+impl From<MEEvent> for MaroonEvent {
+    fn from(e: MEEvent) -> Self {
+        MaroonEvent::MetaExchange(e)
     }
 }
 
@@ -122,6 +134,7 @@ impl P2P {
             ),
             gossipsub,
             request_response: gm_request_response::create_behaviour(ProtocolSupport::Inbound),
+            meta_exchange: meta_exchange::create_behaviour(),
         };
 
         let swarm = Swarm::new(
@@ -195,6 +208,8 @@ impl P2P {
     /// TODO: add stop/finish channel
     pub async fn start_event_loop(self) {
         let mut alive_peer_ids: HashSet<PeerId> = HashSet::new();
+        let mut alive_gateway_ids: HashSet<PeerId> = HashSet::new();
+
         alive_peer_ids.insert(self.peer_id);
         let mut swarm = self.swarm;
 
@@ -233,10 +248,43 @@ impl P2P {
                                 _=tx_in.send(Inbox::State((p2p_message.peer_id, state)));
                                },
                             }
-
                         }
                         Err(e) => {
                             println!("swarm deserialize: {e}")
+                        }
+                    },
+                    SwarmEvent::Behaviour(MaroonEvent::MetaExchange(meta_exchange)) =>{
+                        match meta_exchange{
+                            MEEvent::Message{ message,peer, .. } => {
+                                match message{
+                                    RequestResponseMessage::Response{ response, ..} => {
+                                        match response.role{
+                                            Role::Gateway => {
+                                                alive_gateway_ids.insert(peer);
+                                            },
+                                            Role::Node => {
+                                                alive_peer_ids.insert(peer);
+                                                _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
+                                            },
+                                        }
+                                    },
+                                    RequestResponseMessage::Request{ channel, request,..} => {
+                                        let res = swarm.behaviour_mut().meta_exchange.send_response(channel, MEResponse{role: Role::Node});
+                                        println!("MetaExchangeRequestRes: {:?}", res);
+
+                                        match request.role{
+                                            Role::Gateway => {
+                                                alive_gateway_ids.insert(peer);
+                                            },
+                                            Role::Node => {
+                                                alive_peer_ids.insert(peer);
+                                                _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
+                                            },
+                                        }
+                                    }
+                                }
+                            },
+                            _=>{},
                         }
                     },
                     SwarmEvent::Behaviour(MaroonEvent::Ping(PingEvent { .. })) =>{
@@ -246,12 +294,13 @@ impl P2P {
                         handle_request_response(&mut swarm, gm_request_response);
                     },
                     SwarmEvent::ConnectionEstablished { peer_id, .. } =>{
-                        alive_peer_ids.insert(peer_id);
-                        _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
+                        swarm.behaviour_mut().meta_exchange.send_request(&peer_id, MERequest{role: Role::Node});
                     },
                     SwarmEvent::ConnectionClosed { peer_id, ..}=>{
-                        alive_peer_ids.remove(&peer_id);
-                        _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
+                        alive_gateway_ids.remove(&peer_id);
+                        if alive_peer_ids.remove(&peer_id) {
+                            _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
+                        }
                     },
                     _ => {}
                     }
