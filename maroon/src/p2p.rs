@@ -1,7 +1,7 @@
-use std::{collections::HashSet, fmt::Debug, time::Duration};
-
+use common::gm_request_response::{
+    self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response,
+};
 use futures::StreamExt;
-use interface::{Inbox, Outbox, P2PChannels};
 use libp2p::{
     Multiaddr, PeerId,
     core::{transport::Transport as _, upgrade},
@@ -16,21 +16,26 @@ use libp2p::{
     tcp::{Config as TcpConfig, tokio::Transport as TcpTokioTransport},
     yamux::Config as YamuxConfig,
 };
+use libp2p_request_response::{Message as RequestResponseMessage, ProtocolSupport};
+use p2p_interface::{Inbox, Outbox, P2PChannels};
 use serde::{Deserialize, Serialize};
+use std::{collections::HashSet, fmt::Debug, time::Duration};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
-use crate::interface;
+use crate::p2p_interface;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "MaroonEvent")]
 struct MaroonBehaviour {
     ping: PingBehaviour,
     gossipsub: GossipsubBehaviour,
+    request_response: GMBehaviour,
 }
 
 pub enum MaroonEvent {
     Ping(PingEvent),
     Gossipsub(GossipsubEvent),
+    RequestResponse(GMEvent),
 }
 
 impl From<PingEvent> for MaroonEvent {
@@ -42,6 +47,12 @@ impl From<PingEvent> for MaroonEvent {
 impl From<GossipsubEvent> for MaroonEvent {
     fn from(e: GossipsubEvent) -> Self {
         MaroonEvent::Gossipsub(e)
+    }
+}
+
+impl From<GMEvent> for MaroonEvent {
+    fn from(e: GMEvent) -> Self {
+        MaroonEvent::RequestResponse(e)
     }
 }
 
@@ -65,7 +76,7 @@ pub struct P2P {
     self_url: String,
 
     swarm: Swarm<MaroonBehaviour>,
-    state_topic_hash: TopicHash,
+    node_p2p_topic: TopicHash,
 
     channels: Channels,
 }
@@ -100,8 +111,8 @@ impl P2P {
         )
         .map_err(|e| format!("gossipsub behaviour creation: {e}"))?;
 
-        let state_topic = Sha256Topic::new("node-state");
-        gossipsub.subscribe(&state_topic)?;
+        let node_p2p_topic = Sha256Topic::new("node-p2p");
+        gossipsub.subscribe(&node_p2p_topic)?;
 
         let behaviour = MaroonBehaviour {
             ping: PingBehaviour::new(
@@ -110,6 +121,7 @@ impl P2P {
                     .with_timeout(Duration::from_secs(10)),
             ),
             gossipsub,
+            request_response: gm_request_response::create_behaviour(ProtocolSupport::Inbound),
         };
 
         let swarm = Swarm::new(
@@ -128,7 +140,7 @@ impl P2P {
             self_url,
             peer_id,
             swarm,
-            state_topic_hash: state_topic.hash().clone(),
+            node_p2p_topic: node_p2p_topic.hash().clone(),
             channels: Channels {
                 tx_in,
                 rx_in: Owned::Here(rx_in),
@@ -204,7 +216,7 @@ impl P2P {
                     if let Err(e) = swarm
                         .behaviour_mut()
                         .gossipsub
-                        .publish(self.state_topic_hash.clone(), bytes){
+                        .publish(self.node_p2p_topic.clone(), bytes){
                             println!("publish error: {}", e);
                         }
                 },
@@ -230,6 +242,9 @@ impl P2P {
                     SwarmEvent::Behaviour(MaroonEvent::Ping(PingEvent { .. })) =>{
                         // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
                     },
+                    SwarmEvent::Behaviour(MaroonEvent::RequestResponse(gm_request_response)) =>{
+                        handle_request_response(&mut swarm, gm_request_response);
+                    },
                     SwarmEvent::ConnectionEstablished { peer_id, .. } =>{
                         alive_peer_ids.insert(peer_id);
                         _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
@@ -243,6 +258,34 @@ impl P2P {
                 }
             }
         }
+    }
+}
+
+fn handle_request_response(swarm: &mut Swarm<MaroonBehaviour>, gm_request_response: GMEvent) {
+    println!("RequestResponse: {:?}", gm_request_response);
+
+    match gm_request_response {
+        GMEvent::Message { message, .. } => match message {
+            RequestResponseMessage::Request {
+                request_id,
+                request,
+                channel,
+            } => {
+                println!("Request: {:?}, {:?}", request_id, request);
+
+                match request {
+                    Request::NewTransaction(_) => {
+                        let res = swarm
+                            .behaviour_mut()
+                            .request_response
+                            .send_response(channel, Response::Acknowledged);
+                        println!("Response sent: {:?}", res);
+                    }
+                }
+            }
+            _ => {}
+        },
+        _ => {}
     }
 }
 

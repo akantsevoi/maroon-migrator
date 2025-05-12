@@ -1,4 +1,4 @@
-use crate::interface::{Inbox, KeyOffset, KeyRange, NodeState, Outbox, P2PChannels};
+use crate::p2p_interface::{Inbox, KeyOffset, KeyRange, NodeState, Outbox, P2PChannels};
 use libp2p::PeerId;
 use std::{
     collections::{HashMap, HashSet},

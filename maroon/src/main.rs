@@ -2,8 +2,8 @@
 mod macros;
 
 mod app;
-mod interface;
 mod p2p;
+mod p2p_interface;
 
 use app::App;
 use std::time::Duration;
