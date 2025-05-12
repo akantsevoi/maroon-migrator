@@ -310,42 +310,36 @@ fn handle_request_response(swarm: &mut Swarm<MaroonBehaviour>, gm_request_respon
 fn handle_meta_exchange(
     swarm: &mut Swarm<MaroonBehaviour>,
     meta_exchange: MEEvent,
-    alive_peer_ids: &mut HashSet<PeerId>,
+    alive_node_ids: &mut HashSet<PeerId>,
     alive_gateway_ids: &mut HashSet<PeerId>,
     tx_in: &UnboundedSender<Inbox>,
 ) {
-    match meta_exchange {
-        MEEvent::Message { message, peer, .. } => match message {
-            RequestResponseMessage::Response { response, .. } => match response.role {
-                Role::Gateway => {
-                    alive_gateway_ids.insert(peer);
-                }
-                Role::Node => {
-                    alive_peer_ids.insert(peer);
-                    _ = tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
-                }
-            },
-            RequestResponseMessage::Request {
-                channel, request, ..
-            } => {
-                let res = swarm
-                    .behaviour_mut()
-                    .meta_exchange
-                    .send_response(channel, MEResponse { role: Role::Node });
-                println!("MetaExchangeRequestRes: {:?}", res);
+    let MEEvent::Message { message, peer, .. } = meta_exchange else {
+        return;
+    };
 
-                match request.role {
-                    Role::Gateway => {
-                        alive_gateway_ids.insert(peer);
-                    }
-                    Role::Node => {
-                        alive_peer_ids.insert(peer);
-                        _ = tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
-                    }
-                }
-            }
-        },
-        _ => {}
+    let mut insert_by_role = |role: Role| match role {
+        Role::Gateway => {
+            alive_gateway_ids.insert(peer);
+        }
+        Role::Node => {
+            alive_node_ids.insert(peer);
+            _ = tx_in.send(Inbox::Nodes(alive_node_ids.clone()));
+        }
+    };
+
+    match message {
+        RequestResponseMessage::Response { response, .. } => insert_by_role(response.role),
+        RequestResponseMessage::Request {
+            channel, request, ..
+        } => {
+            let res = swarm
+                .behaviour_mut()
+                .meta_exchange
+                .send_response(channel, MEResponse { role: Role::Node });
+            println!("MetaExchangeRequestRes: {:?}", res);
+            insert_by_role(request.role);
+        }
     }
 }
 
