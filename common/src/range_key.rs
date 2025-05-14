@@ -1,12 +1,16 @@
-use derive_more::{Add, AddAssign};
+use derive_more::{Add, AddAssign, Display};
 use serde::{Deserialize, Serialize};
 
 // TODO: KeyRange and KeyOffset shouldn't be u64 since their combination fits into u64
 //
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Display,
+)]
 pub struct KeyRange(pub u64);
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Add)]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Add, Display,
+)]
 pub struct KeyOffset(pub u64);
 
 /// Unique identifier for a transaction

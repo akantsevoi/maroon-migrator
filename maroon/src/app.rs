@@ -77,7 +77,12 @@ impl App {
             }
         }
 
-        println!("consensus_offset: {:?}", self.consensus_offset);
+        let mut str = String::new();
+        for (k, v) in &self.consensus_offset {
+            str.push_str(&format!("\n{}: {}", k, v));
+        }
+
+        println!("consensus_offset:{}", str);
     }
 
     fn handle_inbox_message(&mut self, msg: Inbox) {
