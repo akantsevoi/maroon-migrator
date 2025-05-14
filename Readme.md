@@ -25,10 +25,11 @@ First part of the plan is to get the reliable engine that will get requests from
     - [X] MN. establish p2p connection between all the nodes(exchange public keys) + send pings
     - [X] MN. calculate delay for each node
 - [X] MN. regularly exchange current vector state to all MNs
-- [ ] MN. leader regularly publishes vector commited updates
-- [ ] write script that finds leader, pauses the container and then restores it after a new leader elected
-- [ ] G. create a library/main script that can send requests to MN.
-    - [ ] make it in a form of library but for now it can be called via script
-- [ ] G. request range from leader(get leaderID from ETCD)
+- [X] G. Minimal gateway implementation that just publishes transactions
+- [ ] MN. Request outdated transactions(p2p)
+- [ ] G/MN. Add API to request key ranges for G
     - [ ] MN. store used ranges on etcd
-- [ ] G. Emit request (can be just print current time) on timer ticker. Should be sent to all MNs
+- [ ] MN. leader regularly publishes vector commited updates to S3 + etcd
+- [ ] write script that finds leader, pauses the container and then restores it after a new leader elected
+- [ ] G. make it working as a server/sidecar/library
+- [ ] MN. Bootstratp node from s3
