@@ -260,7 +260,7 @@ impl P2P {
                         // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
                     },
                     SwarmEvent::Behaviour(MaroonEvent::RequestResponse(gm_request_response)) =>{
-                        handle_request_response(&mut swarm, gm_request_response);
+                        handle_request_response(&mut swarm, &tx_in, gm_request_response);
                     },
                     SwarmEvent::ConnectionEstablished { peer_id, .. } =>{
                         swarm.behaviour_mut().meta_exchange.send_request(&peer_id, MERequest{role: Role::Node});
@@ -279,9 +279,11 @@ impl P2P {
     }
 }
 
-fn handle_request_response(swarm: &mut Swarm<MaroonBehaviour>, gm_request_response: GMEvent) {
-    println!("RequestResponse: {:?}", gm_request_response);
-
+fn handle_request_response(
+    swarm: &mut Swarm<MaroonBehaviour>,
+    tx_in: &UnboundedSender<Inbox>,
+    gm_request_response: GMEvent,
+) {
     match gm_request_response {
         GMEvent::Message { message, .. } => match message {
             RequestResponseMessage::Request {
@@ -292,7 +294,9 @@ fn handle_request_response(swarm: &mut Swarm<MaroonBehaviour>, gm_request_respon
                 println!("Request: {:?}, {:?}", request_id, request);
 
                 match request {
-                    Request::NewTransaction(_) => {
+                    Request::NewTransaction(tx) => {
+                        _ = tx_in.send(Inbox::NewTransaction(tx));
+
                         let res = swarm
                             .behaviour_mut()
                             .request_response

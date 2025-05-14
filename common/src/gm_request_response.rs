@@ -29,13 +29,13 @@ pub enum Response {
     Rejected,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Transaction {
     pub id: TransactionID,
     pub status: TxStatus,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(tag = "type", content = "data")]
 pub enum TxStatus {
     Created,

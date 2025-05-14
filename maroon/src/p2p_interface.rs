@@ -1,3 +1,7 @@
+use common::{
+    gm_request_response::Transaction,
+    range_key::{KeyOffset, KeyRange},
+};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -25,6 +29,7 @@ pub enum Outbox {
 pub enum Inbox {
     State((PeerId, NodeState)),
     Nodes(HashSet<PeerId>),
+    NewTransaction(Transaction),
 }
 
 // Node state
@@ -32,9 +37,3 @@ pub enum Inbox {
 pub struct NodeState {
     pub offsets: HashMap<KeyRange, KeyOffset>,
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct KeyRange(pub u64);
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct KeyOffset(pub u64);

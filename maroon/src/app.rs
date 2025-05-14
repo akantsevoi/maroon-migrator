@@ -1,4 +1,8 @@
-use crate::p2p_interface::{Inbox, KeyOffset, KeyRange, NodeState, Outbox, P2PChannels};
+use crate::p2p_interface::{Inbox, NodeState, Outbox, P2PChannels};
+use common::{
+    gm_request_response::Transaction,
+    range_key::{self, KeyOffset, KeyRange, TransactionID},
+};
 use libp2p::PeerId;
 use std::{
     collections::{HashMap, HashSet},
@@ -24,6 +28,8 @@ pub struct App {
     ///
     /// what to do if some nodes are gone and new nodes don't have all the offsets yet? - download from s3
     consensus_offset: HashMap<KeyRange, KeyOffset>,
+
+    transactions: HashMap<TransactionID, Transaction>,
 }
 
 impl App {
@@ -35,6 +41,7 @@ impl App {
             offsets: HashMap::new(),
             self_offsets: HashMap::new(),
             consensus_offset: HashMap::new(),
+            transactions: HashMap::new(),
         })
     }
 
@@ -45,27 +52,14 @@ impl App {
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
+                    self.recalculate_consensus_offsets();
                     if let Err(e)=self.channels.sender.send( Outbox::State(NodeState{offsets: self.self_offsets.clone()})) {
                         println!("main send: {e}");
                         continue;
                     };
                 },
                 Some(payload) = self.channels.receiver.recv() =>  {
-                    match payload {
-                        Inbox::State((peer_id, state))=>{
-                            for (k,v) in state.offsets {
-                                if let Some(in_map) = self.offsets.get_mut(&k) {
-                                    in_map.insert(peer_id, v);
-                                } else{
-                                    self.offsets.insert(k, HashMap::from([(peer_id, v)]));
-                                }
-                            }
-                            self.recalculate_consensus_offsets();
-                        },
-                        Inbox::Nodes(nodes)=>{
-                            recalculate_order(self.peer_id ,&nodes);
-                        },
-                    }
+                    self.handle_inbox_message(payload);
                 },
                 _ = &mut shutdown =>{
                     println!("shutdown the app");
@@ -82,7 +76,71 @@ impl App {
                 self.consensus_offset.insert(*k, *max);
             }
         }
+
+        println!("consensus_offset: {:?}", self.consensus_offset);
     }
+
+    fn handle_inbox_message(&mut self, msg: Inbox) {
+        match msg {
+            Inbox::State((peer_id, state)) => {
+                for (k, v) in state.offsets {
+                    if let Some(in_map) = self.offsets.get_mut(&k) {
+                        in_map.insert(peer_id, v);
+                    } else {
+                        self.offsets.insert(k, HashMap::from([(peer_id, v)]));
+                    }
+                }
+            }
+            Inbox::Nodes(nodes) => {
+                recalculate_order(self.peer_id, &nodes);
+            }
+            Inbox::NewTransaction(tx) => {
+                if let Some((new_range, new_offset)) =
+                    update_self_offset(&mut self.self_offsets, &mut self.transactions, tx)
+                {
+                    let Some(mut_range) = self.offsets.get_mut(&new_range) else {
+                        self.offsets
+                            .insert(new_range, HashMap::from([(self.peer_id, new_offset)]));
+                        return;
+                    };
+
+                    mut_range.insert(self.peer_id, new_offset);
+                }
+            }
+        }
+    }
+}
+
+fn update_self_offset(
+    self_offsets: &mut HashMap<KeyRange, KeyOffset>,
+    transactions: &mut HashMap<TransactionID, Transaction>,
+    transaction: Transaction,
+) -> Option<(KeyRange, KeyOffset)> {
+    let (range, offset) = range_key::range_offset_from_key(transaction.id);
+    transactions.insert(transaction.id, transaction);
+
+    let start = match self_offsets.get(&range) {
+        Some(existing_offset) => existing_offset,
+        None => {
+            if offset == KeyOffset(0) {
+                self_offsets.insert(range, KeyOffset(0));
+            } else {
+                return None;
+            }
+            &KeyOffset(0)
+        }
+    };
+
+    let mut key = range_key::key_from_range_and_offset(range, *start);
+    while transactions.contains_key(&(key + TransactionID(1))) {
+        // TODO: there is an overflow error here. If one range is finished transaction can still be in the map, but offset will be above the maximum
+        key += TransactionID(1);
+    }
+
+    let (_, new_offset) = range_key::range_offset_from_key(key);
+    self_offsets.insert(range, new_offset);
+
+    Some((range, new_offset))
 }
 
 /// returns maximum offset among peers keeping in mind the `n_consensus`
@@ -127,6 +185,7 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use common::gm_request_response::{Transaction, TxStatus};
     use tokio::{sync::mpsc, time};
 
     #[tokio::test(flavor = "multi_thread")]
@@ -223,6 +282,268 @@ mod tests {
                 i,
                 case.map,
                 case.want
+            );
+        }
+    }
+
+    #[test]
+    fn update_self_offset_test() {
+        struct Case<'a> {
+            label: &'a str,
+            initial_self_offsets: HashMap<KeyRange, KeyOffset>,
+            initial_transactions: HashMap<TransactionID, Transaction>,
+            transaction: Transaction,
+            expected_self_offsets: HashMap<KeyRange, KeyOffset>,
+            expected_transactions: HashMap<TransactionID, Transaction>,
+        }
+
+        let cases = [
+            Case {
+                label: "empty",
+                initial_self_offsets: HashMap::new(),
+                initial_transactions: HashMap::new(),
+                transaction: Transaction {
+                    id: TransactionID(0),
+                    status: TxStatus::Pending,
+                },
+                expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
+                expected_transactions: HashMap::from([(
+                    TransactionID(0),
+                    Transaction {
+                        id: TransactionID(0),
+                        status: TxStatus::Pending,
+                    },
+                )]),
+            },
+            Case {
+                label: "add already existing transaction. no effect",
+                initial_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
+                initial_transactions: HashMap::from([(
+                    TransactionID(0),
+                    Transaction {
+                        id: TransactionID(0),
+                        status: TxStatus::Pending,
+                    },
+                )]),
+                transaction: Transaction {
+                    id: TransactionID(0),
+                    status: TxStatus::Pending,
+                },
+                expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
+                expected_transactions: HashMap::from([(
+                    TransactionID(0),
+                    Transaction {
+                        id: TransactionID(0),
+                        status: TxStatus::Pending,
+                    },
+                )]),
+            },
+            Case {
+                label: "add next transaction",
+                initial_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
+                initial_transactions: HashMap::from([(
+                    TransactionID(0),
+                    Transaction {
+                        id: TransactionID(0),
+                        status: TxStatus::Pending,
+                    },
+                )]),
+                transaction: Transaction {
+                    id: TransactionID(1),
+                    status: TxStatus::Pending,
+                },
+                expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(1))]),
+                expected_transactions: HashMap::from([
+                    (
+                        TransactionID(0),
+                        Transaction {
+                            id: TransactionID(0),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(1),
+                        Transaction {
+                            id: TransactionID(1),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                ]),
+            },
+            Case {
+                label: "add transaction, fill the gap, empty initial offset",
+                initial_self_offsets: HashMap::from([]),
+                initial_transactions: HashMap::from([(
+                    TransactionID(1),
+                    Transaction {
+                        id: TransactionID(1),
+                        status: TxStatus::Pending,
+                    },
+                )]),
+                transaction: Transaction {
+                    id: TransactionID(0),
+                    status: TxStatus::Pending,
+                },
+                expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(1))]),
+                expected_transactions: HashMap::from([
+                    (
+                        TransactionID(0),
+                        Transaction {
+                            id: TransactionID(0),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(1),
+                        Transaction {
+                            id: TransactionID(1),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                ]),
+            },
+            Case {
+                label: "add transaction, fill the gap, dont go till the end",
+                initial_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
+                initial_transactions: HashMap::from([
+                    (
+                        TransactionID(0),
+                        Transaction {
+                            id: TransactionID(0),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(2),
+                        Transaction {
+                            id: TransactionID(2),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(4),
+                        Transaction {
+                            id: TransactionID(4),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                ]),
+                transaction: Transaction {
+                    id: TransactionID(1),
+                    status: TxStatus::Pending,
+                },
+                expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(2))]),
+                expected_transactions: HashMap::from([
+                    (
+                        TransactionID(0),
+                        Transaction {
+                            id: TransactionID(0),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(1),
+                        Transaction {
+                            id: TransactionID(1),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(2),
+                        Transaction {
+                            id: TransactionID(2),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(4),
+                        Transaction {
+                            id: TransactionID(4),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                ]),
+            },
+            Case {
+                label: "add transaction, fill the gap but not in the beginning",
+                initial_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
+                initial_transactions: HashMap::from([
+                    (
+                        TransactionID(0),
+                        Transaction {
+                            id: TransactionID(0),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(2),
+                        Transaction {
+                            id: TransactionID(2),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(4),
+                        Transaction {
+                            id: TransactionID(4),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                ]),
+                transaction: Transaction {
+                    id: TransactionID(3),
+                    status: TxStatus::Pending,
+                },
+                expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
+                expected_transactions: HashMap::from([
+                    (
+                        TransactionID(0),
+                        Transaction {
+                            id: TransactionID(0),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(3),
+                        Transaction {
+                            id: TransactionID(3),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(2),
+                        Transaction {
+                            id: TransactionID(2),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                    (
+                        TransactionID(4),
+                        Transaction {
+                            id: TransactionID(4),
+                            status: TxStatus::Pending,
+                        },
+                    ),
+                ]),
+            },
+        ];
+
+        for case in cases {
+            let mut case = case;
+            update_self_offset(
+                &mut case.initial_self_offsets,
+                &mut case.initial_transactions,
+                case.transaction,
+            );
+            assert_eq!(
+                case.expected_self_offsets, case.initial_self_offsets,
+                "{}",
+                case.label,
+            );
+            assert_eq!(
+                case.expected_transactions, case.initial_transactions,
+                "{}",
+                case.label,
             );
         }
     }
