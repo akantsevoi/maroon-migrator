@@ -259,13 +259,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tokio::time::sleep(Duration::from_secs(2)).await;
 
-    p2p_channels
-        .tx_request
-        .send(Request::NewTransaction(Transaction {
-            id: TransactionID(1),
-            status: TxStatus::Created,
-        }))
-        .unwrap();
+    for i in 0..10 {
+        p2p_channels
+            .tx_request
+            .send(Request::NewTransaction(Transaction {
+                id: TransactionID(i),
+                status: TxStatus::Created,
+            }))
+            .unwrap();
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
 
     tokio::time::sleep(Duration::from_secs(10)).await;
     Ok(())
