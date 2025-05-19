@@ -5,7 +5,7 @@ use tokio::sync::oneshot;
 pub async fn create_stack_and_loop_until_shutdown(
     node_urls: Vec<String>,
     self_url: String,
-    mut shutdown: oneshot::Receiver<()>,
+    shutdown: oneshot::Receiver<()>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut p2p = P2P::new(node_urls, self_url)?;
     let my_id = p2p.peer_id;

@@ -16,8 +16,12 @@ run-local:
 	ETCD_ENDPOINTS=${ETCD_ENDPOINTS} \
 	NODE_URLS=/ip4/127.0.0.1/tcp/3000,/ip4/127.0.0.1/tcp/3001,/ip4/127.0.0.1/tcp/3002 \
 	SELF_URL=/ip4/127.0.0.1/tcp/${PORT} \
-	RUST_LOG=trace \
+	RUST_LOG=debug \
 		cargo run -p maroon
+
+integest:
+	RUST_LOG=maroon=info,gateway=debug \
+		cargo test -p integration
 
 shutdown:
 	docker compose -f deploy/maroon/docker-compose.yaml down --remove-orphans
