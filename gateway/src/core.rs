@@ -14,7 +14,8 @@ enum Value<T> {
 }
 
 impl<T> Value<T> {
-    /// Can be performed only if Value::Here, otherwise it will panic
+    /// extracts value
+    /// can be performed only once if Value::Here, otherwise it will panic
     fn extract(&mut self) -> T {
         let mut moved = Value::Moved;
         std::mem::swap(&mut moved, self);
@@ -22,6 +23,13 @@ impl<T> Value<T> {
         match moved {
             Value::Here(val) => return val,
             Value::Moved => panic!("was already moved"),
+        }
+    }
+
+    fn contains(&self) -> bool {
+        match self {
+            Value::Here(_) => true,
+            Value::Moved => false,
         }
     }
 }

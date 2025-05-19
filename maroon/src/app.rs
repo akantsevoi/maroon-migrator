@@ -63,7 +63,7 @@ impl App {
                     self.handle_inbox_message(payload);
                 },
                 _ = &mut shutdown =>{
-                    info!("shutdown the app");
+                    info!("TODO: shutdown the app");
                     break;
                 }
             }
