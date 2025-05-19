@@ -2,8 +2,8 @@
 mod macros;
 
 mod app;
-mod interface;
 mod p2p;
+mod p2p_interface;
 
 use app::App;
 use std::time::Duration;
@@ -11,6 +11,8 @@ use tokio::sync::oneshot;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+
     let node_urls: Vec<String> = std::env::var("NODE_URLS")
         .map_err(|e| format!("NODE_URLS not set: {}", e))?
         .split(',')

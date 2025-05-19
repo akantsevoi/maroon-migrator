@@ -6,3 +6,11 @@ rust-version = "1.86.0"
 
 [dependencies]
 common = { path = "../common" }
+tokio = { workspace = true }
+libp2p = { workspace = true }
+libp2p-request-response = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+futures = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }

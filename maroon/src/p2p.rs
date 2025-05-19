@@ -1,7 +1,12 @@
-use std::{collections::HashSet, fmt::Debug, time::Duration};
-
+use common::{
+    gm_request_response::{self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response},
+    meta_exchange::{
+        self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Request as MERequest,
+        Response as MEResponse, Role,
+    },
+};
 use futures::StreamExt;
-use interface::{Inbox, Outbox, P2PChannels};
+use libp2p::dns::Transport as DnsTransport;
 use libp2p::{
     Multiaddr, PeerId,
     core::{transport::Transport as _, upgrade},
@@ -16,21 +21,29 @@ use libp2p::{
     tcp::{Config as TcpConfig, tokio::Transport as TcpTokioTransport},
     yamux::Config as YamuxConfig,
 };
+use libp2p_request_response::{Message as RequestResponseMessage, ProtocolSupport};
+use log::{debug, error, info, warn};
+use p2p_interface::{Inbox, Outbox, P2PChannels};
 use serde::{Deserialize, Serialize};
+use std::{collections::HashSet, fmt::Debug, time::Duration};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
-use crate::interface;
+use crate::p2p_interface;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "MaroonEvent")]
 struct MaroonBehaviour {
     ping: PingBehaviour,
     gossipsub: GossipsubBehaviour,
+    request_response: GMBehaviour,
+    meta_exchange: MetaExchangeBehaviour,
 }
 
 pub enum MaroonEvent {
     Ping(PingEvent),
     Gossipsub(GossipsubEvent),
+    RequestResponse(GMEvent),
+    MetaExchange(MEEvent),
 }
 
 impl From<PingEvent> for MaroonEvent {
@@ -42,6 +55,18 @@ impl From<PingEvent> for MaroonEvent {
 impl From<GossipsubEvent> for MaroonEvent {
     fn from(e: GossipsubEvent) -> Self {
         MaroonEvent::Gossipsub(e)
+    }
+}
+
+impl From<GMEvent> for MaroonEvent {
+    fn from(e: GMEvent) -> Self {
+        MaroonEvent::RequestResponse(e)
+    }
+}
+
+impl From<MEEvent> for MaroonEvent {
+    fn from(e: MEEvent) -> Self {
+        MaroonEvent::MetaExchange(e)
     }
 }
 
@@ -65,7 +90,7 @@ pub struct P2P {
     self_url: String,
 
     swarm: Swarm<MaroonBehaviour>,
-    state_topic_hash: TopicHash,
+    node_p2p_topic: TopicHash,
 
     channels: Channels,
 }
@@ -77,7 +102,7 @@ impl P2P {
     ) -> Result<P2P, Box<dyn std::error::Error>> {
         let kp = identity::Keypair::generate_ed25519();
         let peer_id = PeerId::from(kp.public());
-        println!("Local peer id: {:?}", peer_id);
+        info!("Local peer id: {:?}", peer_id);
 
         let auth_config =
             NoiseConfig::new(&kp).map_err(|e: NoiseError| format!("noise config error: {}", e))?;
@@ -100,8 +125,8 @@ impl P2P {
         )
         .map_err(|e| format!("gossipsub behaviour creation: {e}"))?;
 
-        let state_topic = Sha256Topic::new("node-state");
-        gossipsub.subscribe(&state_topic)?;
+        let node_p2p_topic = Sha256Topic::new("node-p2p");
+        gossipsub.subscribe(&node_p2p_topic)?;
 
         let behaviour = MaroonBehaviour {
             ping: PingBehaviour::new(
@@ -110,10 +135,12 @@ impl P2P {
                     .with_timeout(Duration::from_secs(10)),
             ),
             gossipsub,
+            request_response: gm_request_response::create_behaviour(ProtocolSupport::Inbound),
+            meta_exchange: meta_exchange::create_behaviour(),
         };
 
         let swarm = Swarm::new(
-            transport,
+            DnsTransport::system(transport).unwrap().boxed(),
             behaviour,
             peer_id,
             SwarmConfig::with_tokio_executor()
@@ -128,7 +155,7 @@ impl P2P {
             self_url,
             peer_id,
             swarm,
-            state_topic_hash: state_topic.hash().clone(),
+            node_p2p_topic: node_p2p_topic.hash().clone(),
             channels: Channels {
                 tx_in,
                 rx_in: Owned::Here(rx_in),
@@ -150,7 +177,7 @@ impl P2P {
             }
 
             let addr: Multiaddr = url.parse()?;
-            println!("Dialing {addr} …");
+            debug!("Dialing {addr} …");
             self.swarm.dial(addr)?;
         }
 
@@ -183,6 +210,8 @@ impl P2P {
     /// TODO: add stop/finish channel
     pub async fn start_event_loop(self) {
         let mut alive_peer_ids: HashSet<PeerId> = HashSet::new();
+        let mut alive_gateway_ids: HashSet<PeerId> = HashSet::new();
+
         alive_peer_ids.insert(self.peer_id);
         let mut swarm = self.swarm;
 
@@ -197,15 +226,15 @@ impl P2P {
                     };
 
                     let bytes = guard_ok!(serde_json::to_vec(&message), e, {
-                        println!("serialize message error: {e}");
+                        error!("serialize message error: {e}");
                         continue;
                     });
 
                     if let Err(e) = swarm
                         .behaviour_mut()
                         .gossipsub
-                        .publish(self.state_topic_hash.clone(), bytes){
-                            println!("publish error: {}", e);
+                        .publish(self.node_p2p_topic.clone(), bytes){
+                            warn!("publish error: {}", e);
                         }
                 },
                 event = swarm.select_next_some()=>{
@@ -221,27 +250,104 @@ impl P2P {
                                 _=tx_in.send(Inbox::State((p2p_message.peer_id, state)));
                                },
                             }
-
                         }
                         Err(e) => {
-                            println!("swarm deserialize: {e}")
+                            error!("swarm deserialize: {e}");
                         }
+                    },
+                    SwarmEvent::Behaviour(MaroonEvent::MetaExchange(meta_exchange)) =>{
+                        handle_meta_exchange(&mut swarm, meta_exchange, &mut alive_peer_ids, &mut alive_gateway_ids, &tx_in);
                     },
                     SwarmEvent::Behaviour(MaroonEvent::Ping(PingEvent { .. })) =>{
                         // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
                     },
+                    SwarmEvent::Behaviour(MaroonEvent::RequestResponse(gm_request_response)) =>{
+                        handle_request_response(&mut swarm, &tx_in, gm_request_response);
+                    },
                     SwarmEvent::ConnectionEstablished { peer_id, .. } =>{
-                        alive_peer_ids.insert(peer_id);
-                        _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
+                        swarm.behaviour_mut().meta_exchange.send_request(&peer_id, MERequest{role: Role::Node});
                     },
                     SwarmEvent::ConnectionClosed { peer_id, ..}=>{
-                        alive_peer_ids.remove(&peer_id);
-                        _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
+                        alive_gateway_ids.remove(&peer_id);
+                        if alive_peer_ids.remove(&peer_id) {
+                            _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
+                        }
+                    },
+                    SwarmEvent::OutgoingConnectionError { peer_id, connection_id, error } => {
+                        debug!("OutgoingConnectionError: {peer_id:?} {connection_id} {error}");
                     },
                     _ => {}
                     }
                 }
             }
+        }
+    }
+}
+
+fn handle_request_response(
+    swarm: &mut Swarm<MaroonBehaviour>,
+    tx_in: &UnboundedSender<Inbox>,
+    gm_request_response: GMEvent,
+) {
+    match gm_request_response {
+        GMEvent::Message { message, .. } => match message {
+            RequestResponseMessage::Request {
+                request_id,
+                request,
+                channel,
+            } => {
+                debug!("Request: {:?}, {:?}", request_id, request);
+
+                match request {
+                    Request::NewTransaction(tx) => {
+                        _ = tx_in.send(Inbox::NewTransaction(tx));
+
+                        let res = swarm
+                            .behaviour_mut()
+                            .request_response
+                            .send_response(channel, Response::Acknowledged);
+                        debug!("Response sent: {:?}", res);
+                    }
+                }
+            }
+            _ => {}
+        },
+        _ => {}
+    }
+}
+
+fn handle_meta_exchange(
+    swarm: &mut Swarm<MaroonBehaviour>,
+    meta_exchange: MEEvent,
+    alive_node_ids: &mut HashSet<PeerId>,
+    alive_gateway_ids: &mut HashSet<PeerId>,
+    tx_in: &UnboundedSender<Inbox>,
+) {
+    let MEEvent::Message { message, peer, .. } = meta_exchange else {
+        return;
+    };
+
+    let mut insert_by_role = |role: Role| match role {
+        Role::Gateway => {
+            alive_gateway_ids.insert(peer);
+        }
+        Role::Node => {
+            alive_node_ids.insert(peer);
+            _ = tx_in.send(Inbox::Nodes(alive_node_ids.clone()));
+        }
+    };
+
+    match message {
+        RequestResponseMessage::Response { response, .. } => insert_by_role(response.role),
+        RequestResponseMessage::Request {
+            channel, request, ..
+        } => {
+            let res = swarm
+                .behaviour_mut()
+                .meta_exchange
+                .send_response(channel, MEResponse { role: Role::Node });
+            debug!("MetaExchangeRequestRes: {:?}", res);
+            insert_by_role(request.role);
         }
     }
 }
