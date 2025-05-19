@@ -1067,9 +1067,11 @@ name = "gateway"
 version = "0.1.0"
 dependencies = [
  "common",
+ "env_logger",
  "futures",
  "libp2p",
  "libp2p-request-response",
+ "log",
  "serde",
  "serde_json",
  "tokio",
@@ -1758,6 +1760,7 @@ dependencies = [
  "libp2p-quic",
  "libp2p-swarm",
  "libp2p-tcp",
+ "libp2p-tls",
  "libp2p-upnp",
  "libp2p-yamux",
  "multiaddr",

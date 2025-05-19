@@ -3,13 +3,12 @@ use common::{
         self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response, Transaction, TxStatus,
     },
     meta_exchange::{
-        self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Request as MERequest,
-        Response as MEResponse, Role,
+        self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Response as MEResponse, Role,
     },
     range_key::TransactionID,
 };
 use futures::StreamExt;
-use libp2p::dns::{self, Transport as DnsTransport};
+use libp2p::dns::Transport as DnsTransport;
 use libp2p::{
     Multiaddr, PeerId,
     core::{transport::Transport as _, upgrade},
@@ -21,6 +20,7 @@ use libp2p::{
     yamux::Config as YamuxConfig,
 };
 use libp2p_request_response::{Message as RequestResponseMessage, ProtocolSupport};
+use log::{debug, error, info, warn};
 use std::{collections::HashSet, time::Duration};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
@@ -86,7 +86,7 @@ impl P2P {
     pub fn new(node_urls: Vec<String>) -> Result<P2P, Box<dyn std::error::Error>> {
         let kp = identity::Keypair::generate_ed25519();
         let peer_id = PeerId::from(kp.public());
-        println!("Local peer id: {:?}", peer_id);
+        info!("Local peer id: {:?}", peer_id);
 
         let auth_config =
             NoiseConfig::new(&kp).map_err(|e: NoiseError| format!("noise config error: {}", e))?;
@@ -137,7 +137,7 @@ impl P2P {
             let addr: Multiaddr = url
                 .parse()
                 .map_err(|e| format!("parse url: {}: {}", url, e))?;
-            println!("Dialing {addr} …");
+            debug!("Dialing {addr} …");
             self.swarm.dial(addr)?;
         }
 
@@ -178,19 +178,19 @@ impl P2P {
             tokio::select! {
                 Some(request) = rx_request.recv() =>  {
                     for peer_id in &maroon_peer_ids {
-                        println!("Sending request to {}", peer_id);
+                        debug!("Sending request to {}", peer_id);
                         let _request_id = swarm.behaviour_mut().request_response.send_request(peer_id, request.clone());
                     }
                 },
                 event = swarm.select_next_some()=>{
                     match event{
                         SwarmEvent::Behaviour(GatewayEvent::RequestResponse(gm_request_response)) => {
-                            println!("RequestResponse: {:?}", gm_request_response);
+                            debug!("RequestResponse: {:?}", gm_request_response);
                             match gm_request_response{
                                 GMEvent::Message{ message, .. } => {
                                     match message{
                                         RequestResponseMessage::Response{request_id, response} => {
-                                            println!("Response: {:?}, {:?}", request_id, response);
+                                            debug!("Response: {:?}, {:?}", request_id, response);
                                             tx_response.send(response).unwrap();
                                         },
                                         _=>{},
@@ -200,16 +200,16 @@ impl P2P {
                             }
                         },
                         SwarmEvent::Behaviour(GatewayEvent::MetaExchange(meta_exchange)) =>{
-                            println!("MetaExchange: {:?}", meta_exchange);
+                            debug!("MetaExchange: {:?}", meta_exchange);
                             match meta_exchange{
                                 MEEvent::Message{ message, .. } => {
                                     match message{
                                         RequestResponseMessage::Response{request_id, response} => {
-                                            println!("MetaExchangeResponse: {:?} {:?}", request_id, response);
+                                            debug!("MetaExchangeResponse: {:?} {:?}", request_id, response);
                                         },
                                         RequestResponseMessage::Request{ channel,..} => {
                                             let res = swarm.behaviour_mut().meta_exchange.send_response(channel, MEResponse{role: Role::Gateway});
-                                            println!("MetaExchangeRequestRes: {:?}", res);
+                                            debug!("MetaExchangeRequestRes: {:?}", res);
                                         },
                                         _=>{},
                                     }
@@ -222,11 +222,15 @@ impl P2P {
                     // },
                     SwarmEvent::ConnectionEstablished { peer_id, .. } =>{
                         maroon_peer_ids.insert(peer_id);
-                        println!("connected to {}", peer_id);
+                        debug!("connected to {}", peer_id);
                     },
                     SwarmEvent::ConnectionClosed { peer_id, ..}=>{
                         maroon_peer_ids.remove(&peer_id);
-                        println!("disconnected from {}", peer_id);
+                        debug!("disconnected from {}", peer_id);
+                    },
+
+                    SwarmEvent::OutgoingConnectionError { peer_id, connection_id, error } => {
+                        debug!("OutgoingConnectionError: {peer_id:?} {connection_id} {error}");
                     },
                     _ => {}
                     }
@@ -238,6 +242,8 @@ impl P2P {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+
     //     let node_urls = std::env::var("NODE_URLS");
     let node_urls = Result::<String, std::env::VarError>::Ok(String::from(
         "/ip4/127.0.0.1/tcp/3000,/ip4/127.0.0.1/tcp/3001,/ip4/127.0.0.1/tcp/3002",

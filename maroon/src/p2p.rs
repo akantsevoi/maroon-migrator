@@ -6,7 +6,7 @@ use common::{
     },
 };
 use futures::StreamExt;
-use libp2p::dns::{self, Transport as DnsTransport};
+use libp2p::dns::Transport as DnsTransport;
 use libp2p::{
     Multiaddr, PeerId,
     core::{transport::Transport as _, upgrade},
@@ -22,7 +22,7 @@ use libp2p::{
     yamux::Config as YamuxConfig,
 };
 use libp2p_request_response::{Message as RequestResponseMessage, ProtocolSupport};
-use log::{debug, info};
+use log::{debug, error, info, warn};
 use p2p_interface::{Inbox, Outbox, P2PChannels};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt::Debug, time::Duration};
@@ -102,7 +102,7 @@ impl P2P {
     ) -> Result<P2P, Box<dyn std::error::Error>> {
         let kp = identity::Keypair::generate_ed25519();
         let peer_id = PeerId::from(kp.public());
-        println!("Local peer id: {:?}", peer_id);
+        info!("Local peer id: {:?}", peer_id);
 
         let auth_config =
             NoiseConfig::new(&kp).map_err(|e: NoiseError| format!("noise config error: {}", e))?;
@@ -177,7 +177,7 @@ impl P2P {
             }
 
             let addr: Multiaddr = url.parse()?;
-            println!("Dialing {addr} …");
+            debug!("Dialing {addr} …");
             self.swarm.dial(addr)?;
         }
 
@@ -226,7 +226,7 @@ impl P2P {
                     };
 
                     let bytes = guard_ok!(serde_json::to_vec(&message), e, {
-                        println!("serialize message error: {e}");
+                        error!("serialize message error: {e}");
                         continue;
                     });
 
@@ -234,7 +234,7 @@ impl P2P {
                         .behaviour_mut()
                         .gossipsub
                         .publish(self.node_p2p_topic.clone(), bytes){
-                            println!("publish error: {}", e);
+                            warn!("publish error: {}", e);
                         }
                 },
                 event = swarm.select_next_some()=>{
@@ -252,7 +252,7 @@ impl P2P {
                             }
                         }
                         Err(e) => {
-                            println!("swarm deserialize: {e}")
+                            error!("swarm deserialize: {e}");
                         }
                     },
                     SwarmEvent::Behaviour(MaroonEvent::MetaExchange(meta_exchange)) =>{
@@ -296,7 +296,7 @@ fn handle_request_response(
                 request,
                 channel,
             } => {
-                println!("Request: {:?}, {:?}", request_id, request);
+                debug!("Request: {:?}, {:?}", request_id, request);
 
                 match request {
                     Request::NewTransaction(tx) => {
@@ -306,7 +306,7 @@ fn handle_request_response(
                             .behaviour_mut()
                             .request_response
                             .send_response(channel, Response::Acknowledged);
-                        println!("Response sent: {:?}", res);
+                        debug!("Response sent: {:?}", res);
                     }
                 }
             }
@@ -346,7 +346,7 @@ fn handle_meta_exchange(
                 .behaviour_mut()
                 .meta_exchange
                 .send_response(channel, MEResponse { role: Role::Node });
-            println!("MetaExchangeRequestRes: {:?}", res);
+            debug!("MetaExchangeRequestRes: {:?}", res);
             insert_by_role(request.role);
         }
     }

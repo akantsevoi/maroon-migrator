@@ -4,6 +4,7 @@ use common::{
     range_key::{self, KeyOffset, KeyRange, TransactionID},
 };
 use libp2p::PeerId;
+use log::{debug, error, info, warn};
 use std::{
     collections::{HashMap, HashSet},
     num::NonZeroUsize,
@@ -54,7 +55,7 @@ impl App {
                 _ = ticker.tick() => {
                     self.recalculate_consensus_offsets();
                     if let Err(e)=self.channels.sender.send( Outbox::State(NodeState{offsets: self.self_offsets.clone()})) {
-                        println!("main send: {e}");
+                        error!("main send: {e}");
                         continue;
                     };
                 },
@@ -62,7 +63,7 @@ impl App {
                     self.handle_inbox_message(payload);
                 },
                 _ = &mut shutdown =>{
-                    println!("shutdown the app");
+                    info!("shutdown the app");
                     break;
                 }
             }
@@ -82,7 +83,7 @@ impl App {
             str.push_str(&format!("\n{}: {}", k, v));
         }
 
-        println!("consensus_offset:{}", str);
+        info!("consensus_offset:{}", str);
     }
 
     fn handle_inbox_message(&mut self, msg: Inbox) {
@@ -174,7 +175,7 @@ fn recalculate_order(self_id: PeerId, ids: &HashSet<PeerId>) {
         .position(|e| **e == self_id)
         .expect("self peer id should exist here. Otherwise it's stupid");
 
-    println!(
+    info!(
         "My delay factor is {}! Nodes order: {:?}",
         delay_factor, peer_ids
     );
