@@ -19,6 +19,8 @@ libp2p = { version = "0.55.0", default-features = false, features = [
     "plaintext",
     "serde",
     "gossipsub",
+    "dns",
+    "tls",
 ] }
 libp2p-request-response = { version = "0.28.0", features = ["json"] }
 

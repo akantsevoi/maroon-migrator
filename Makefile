@@ -33,4 +33,5 @@ build-mn:
 	docker build . -f deploy/maroon/Dockerfile --tag=maroon-mn
 
 run-compose:
-	N=${N:-5} docker compose -f deploy/maroon/docker-compose.yaml up 
+	RUST_LOG=info \
+		docker compose -f deploy/maroon/docker-compose.yaml up 

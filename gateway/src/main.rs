@@ -9,6 +9,7 @@ use common::{
     range_key::TransactionID,
 };
 use futures::StreamExt;
+use libp2p::dns::{self, Transport as DnsTransport};
 use libp2p::{
     Multiaddr, PeerId,
     core::{transport::Transport as _, upgrade},
@@ -107,7 +108,7 @@ impl P2P {
         };
 
         let swarm = Swarm::new(
-            transport,
+            DnsTransport::system(transport).unwrap().boxed(),
             behaviour,
             peer_id,
             SwarmConfig::with_tokio_executor()
@@ -241,6 +242,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let node_urls = Result::<String, std::env::VarError>::Ok(String::from(
         "/ip4/127.0.0.1/tcp/3000,/ip4/127.0.0.1/tcp/3001,/ip4/127.0.0.1/tcp/3002",
     ));
+    // let node_urls =
+    //     Result::<String, std::env::VarError>::Ok(String::from("/dns4/localhost/tcp/3000"));
 
     let node_urls: Vec<String> = node_urls
         .map_err(|e| format!("NODE_URLS not set: {}", e))?

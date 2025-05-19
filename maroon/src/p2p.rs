@@ -6,6 +6,7 @@ use common::{
     },
 };
 use futures::StreamExt;
+use libp2p::dns::{self, Transport as DnsTransport};
 use libp2p::{
     Multiaddr, PeerId,
     core::{transport::Transport as _, upgrade},
@@ -21,6 +22,7 @@ use libp2p::{
     yamux::Config as YamuxConfig,
 };
 use libp2p_request_response::{Message as RequestResponseMessage, ProtocolSupport};
+use log::{debug, info};
 use p2p_interface::{Inbox, Outbox, P2PChannels};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt::Debug, time::Duration};
@@ -138,7 +140,7 @@ impl P2P {
         };
 
         let swarm = Swarm::new(
-            transport,
+            DnsTransport::system(transport).unwrap().boxed(),
             behaviour,
             peer_id,
             SwarmConfig::with_tokio_executor()
@@ -270,6 +272,9 @@ impl P2P {
                         if alive_peer_ids.remove(&peer_id) {
                             _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
                         }
+                    },
+                    SwarmEvent::OutgoingConnectionError { peer_id, connection_id, error } => {
+                        debug!("OutgoingConnectionError: {peer_id:?} {connection_id} {error}");
                     },
                     _ => {}
                     }
