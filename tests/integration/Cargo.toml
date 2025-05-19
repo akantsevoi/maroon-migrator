@@ -1,0 +1,16 @@
+[package]
+name = "integration"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { workspace = true }
+libp2p = { workspace = true }
+futures = { workspace = true }
+env_logger = { workspace = true }
+maroon = { path = "../../maroon" }
+common = { path = "../../common" }
+gateway = { path = "../../gateway" }
+
+[dev-dependencies]
+tokio-test = "0.4"

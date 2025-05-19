@@ -3,6 +3,7 @@ members = [
   "common",
   "gateway",
   "maroon",
+  "tests/integration",
 ]
 resolver = "3"
 

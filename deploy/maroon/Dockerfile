@@ -8,6 +8,7 @@ COPY Cargo.lock ./Cargo.lock
 COPY common ./common
 COPY gateway ./gateway
 COPY maroon ./maroon
+COPY tests ./tests
 
 RUN cargo build -p maroon
 

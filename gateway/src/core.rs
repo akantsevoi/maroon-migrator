@@ -29,6 +29,8 @@ impl<T> Value<T> {
 impl Gateway {
     pub fn new(node_urls: Vec<String>) -> Result<Gateway, Box<dyn std::error::Error>> {
         let mut p2p = P2P::new(node_urls)?;
+        // TODO: prepare works in background and you can't start sending requests immediately when you created Gateway
+        // I need to create some sort of state/flags or block the thread that can prevent sending requests before initialization even happened
         p2p.prepare().map_err(|e| format!("prepare: {}", e))?;
 
         let p2p_channels = p2p.interface_channels();
