@@ -1,3 +1,4 @@
+use crate::p2p_interface;
 use common::{
     gm_request_response::{self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response},
     meta_exchange::{
@@ -27,8 +28,6 @@ use p2p_interface::{Inbox, Outbox, P2PChannels};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt::Debug, time::Duration};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
-
-use crate::p2p_interface;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "MaroonEvent")]
