@@ -50,8 +50,8 @@ async fn test_some() {
     tokio::spawn(async move {
         let result = stack::create_stack_and_loop_until_shutdown(
             vec![
-                "/ip4/127.0.0.1/tcp/3000".to_string(),
-                "/ip4/127.0.0.1/tcp/3001".to_string(),
+                "/dns4/localhost/tcp/3000".to_string(),
+                "/dns4/localhost/tcp/3001".to_string(),
             ],
             "/ip4/0.0.0.0/tcp/3002".to_string(),
             shutdown_rx_2,
