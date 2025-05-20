@@ -541,6 +541,7 @@ dependencies = [
  "libp2p",
  "libp2p-request-response",
  "serde",
+ "tokio",
 ]
 
 [[package]]
