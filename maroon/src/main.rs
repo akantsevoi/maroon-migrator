@@ -1,3 +1,4 @@
+use maroon::app::Params;
 use std::time::Duration;
 use tokio::sync::oneshot;
 
@@ -22,7 +23,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let (_shutdown_tx, shutdown_rx) = oneshot::channel();
-    maroon::stack::create_stack_and_loop_until_shutdown(node_urls, self_url, shutdown_rx).await?;
+
+    let mut app = maroon::stack::create_stack(node_urls, self_url, Params::default())?;
+    app.loop_until_shutdown(shutdown_rx).await;
 
     Ok(())
 }

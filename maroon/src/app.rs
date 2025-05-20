@@ -1,10 +1,11 @@
 use crate::p2p_interface::{Inbox, NodeState, Outbox, P2PChannels};
 use common::{
+    async_interface::{AsyncInterface, ReqResPair},
     gm_request_response::Transaction,
     range_key::{self, KeyOffset, KeyRange, TransactionID},
 };
 use libp2p::PeerId;
-use log::{debug, error, info, warn};
+use log::{error, info};
 use std::{
     collections::{HashMap, HashSet},
     num::NonZeroUsize,
@@ -12,11 +13,43 @@ use std::{
 };
 use tokio::sync::oneshot;
 
-pub struct App {
+pub enum Request {
+    GetState,
+}
+#[derive(Debug, PartialEq, Eq)]
+pub enum Response {
+    State(CurrentOffsets),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct CurrentOffsets {
+    pub self_offsets: HashMap<KeyRange, KeyOffset>,
+    pub consensus_offset: HashMap<KeyRange, KeyOffset>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Params {
+    /// how often node will send state info to other nodes
+    pub advertise_period: std::time::Duration,
     /// minimum amount of nodes that should have the same transactions(+ current one) in order to confirm them
-    consensus_nodes: NonZeroUsize,
+    pub consensus_nodes: NonZeroUsize,
+}
+
+impl Params {
+    pub fn default() -> Params {
+        Params {
+            advertise_period: Duration::from_secs(5),
+            consensus_nodes: NonZeroUsize::new(2).unwrap(),
+        }
+    }
+}
+
+pub struct App {
+    params: Params,
+
     peer_id: PeerId,
     channels: P2PChannels,
+    state_interface: AsyncInterface<Request, Response>,
 
     /// offsets for the current node
     self_offsets: HashMap<KeyRange, KeyOffset>,
@@ -34,11 +67,16 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(peer_id: PeerId, channels: P2PChannels) -> Result<App, Box<dyn std::error::Error>> {
+    pub fn new(
+        peer_id: PeerId,
+        channels: P2PChannels,
+        params: Params,
+    ) -> Result<App, Box<dyn std::error::Error>> {
         Ok(App {
-            consensus_nodes: NonZeroUsize::new(2).unwrap(), // TODO: move to constructor+env variables
+            params: params,
             peer_id,
             channels,
+            state_interface: AsyncInterface::new(),
             offsets: HashMap::new(),
             self_offsets: HashMap::new(),
             consensus_offset: HashMap::new(),
@@ -46,9 +84,15 @@ impl App {
         })
     }
 
+    /// can be called only once because we're moving ownership of receiver channels
+    pub fn get_state_interface(&mut self) -> ReqResPair<Request, Response> {
+        self.state_interface.requester()
+    }
+
     /// starts a loop that processes events and executes logic
     pub async fn loop_until_shutdown(&mut self, mut shutdown: oneshot::Receiver<()>) {
-        let mut ticker = tokio::time::interval(Duration::from_secs(5));
+        let mut ticker = tokio::time::interval(self.params.advertise_period);
+        let mut p = self.state_interface.responder();
 
         loop {
             tokio::select! {
@@ -58,6 +102,15 @@ impl App {
                         error!("main send: {e}");
                         continue;
                     };
+                },
+                Some(request) = p.receiver.recv() => {
+                    match request {
+                        Request::GetState => {
+                            if let Err(e)=p.sender.send(Response::State(CurrentOffsets { self_offsets: self.self_offsets.clone(), consensus_offset: self.consensus_offset.clone() })){
+                                error!("state_interface: {e}");
+                            }
+                        },
+                    }
                 },
                 Some(payload) = self.channels.receiver.recv() =>  {
                     self.handle_inbox_message(payload);
@@ -73,7 +126,7 @@ impl App {
     fn recalculate_consensus_offsets(&mut self) {
         // TODO: Should I be worried that I might have some stale values in consensus_offset?
         for (k, v) in &self.offsets {
-            if let Some(max) = consensus_maximum(&v, self.consensus_nodes) {
+            if let Some(max) = consensus_maximum(&v, self.params.consensus_nodes) {
                 self.consensus_offset.insert(*k, *max);
             }
         }
@@ -184,7 +237,8 @@ fn recalculate_order(self_id: PeerId, ids: &HashSet<PeerId>) {
 #[cfg(test)]
 impl App {
     pub fn new_test_instance(channels: P2PChannels) -> App {
-        App::new(PeerId::random(), channels).expect("failed to create test App instance")
+        App::new(PeerId::random(), channels, Params::default())
+            .expect("failed to create test App instance")
     }
 }
 
