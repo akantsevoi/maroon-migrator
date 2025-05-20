@@ -1,3 +1,4 @@
+use crate::app_interface::{CurrentOffsets, Request, Response};
 use crate::p2p_interface::{Inbox, NodeState, Outbox, P2PChannels};
 use common::{
     async_interface::{AsyncInterface, ReqResPair},
@@ -12,20 +13,6 @@ use std::{
     time::Duration,
 };
 use tokio::sync::oneshot;
-
-pub enum Request {
-    GetState,
-}
-#[derive(Debug, PartialEq, Eq)]
-pub enum Response {
-    State(CurrentOffsets),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct CurrentOffsets {
-    pub self_offsets: HashMap<KeyRange, KeyOffset>,
-    pub consensus_offset: HashMap<KeyRange, KeyOffset>,
-}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Params {

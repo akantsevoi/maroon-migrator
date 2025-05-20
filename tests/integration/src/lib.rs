@@ -10,7 +10,8 @@ use common::{
 };
 use gateway::core::Gateway;
 use maroon::{
-    app::{App, CurrentOffsets, Params, Request as AppRequest, Response as AppResponse},
+    app::{App, Params},
+    app_interface::{CurrentOffsets, Request as AppRequest, Response as AppResponse},
     stack,
 };
 use tokio::sync::oneshot;
