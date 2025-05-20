@@ -28,6 +28,8 @@ async fn test_some() {
         consensus_nodes: NonZeroUsize::new(2).unwrap(),
     };
 
+    // create nodes and gateway
+
     let mut node0 = stack::create_stack(
         vec![
             "/ip4/127.0.0.1/tcp/3001".to_string(),
@@ -56,14 +58,6 @@ async fn test_some() {
     )
     .unwrap();
 
-    let mut state_check_0 = node0.get_state_interface();
-    let mut state_check_1 = node1.get_state_interface();
-    let mut state_check_2 = node2.get_state_interface();
-
-    tokio::spawn(async move { node0.loop_until_shutdown(shutdown_rx_0).await });
-    tokio::spawn(async move { node1.loop_until_shutdown(shutdown_rx_1).await });
-    tokio::spawn(async move { node2.loop_until_shutdown(shutdown_rx_2).await });
-
     let mut gw = Gateway::new(vec![
         "/ip4/127.0.0.1/tcp/3000".to_string(),
         "/ip4/127.0.0.1/tcp/3001".to_string(),
@@ -71,9 +65,22 @@ async fn test_some() {
     ])
     .unwrap();
 
+    let mut state_check_0 = node0.get_state_interface();
+    let mut state_check_1 = node1.get_state_interface();
+    let mut state_check_2 = node2.get_state_interface();
+
+    // run nodes and gateway
+
+    tokio::spawn(async move { node0.loop_until_shutdown(shutdown_rx_0).await });
+    tokio::spawn(async move { node1.loop_until_shutdown(shutdown_rx_1).await });
+    tokio::spawn(async move { node2.loop_until_shutdown(shutdown_rx_2).await });
+
     gw.start_on_background().await;
+
+    // wait until they are connected
     tokio::time::sleep(Duration::from_secs(1)).await;
 
+    // send requests from gateway
     _ = gw
         .send_request(Request::NewTransaction(Transaction {
             id: TransactionID(1),
@@ -87,6 +94,7 @@ async fn test_some() {
         }))
         .await;
 
+    // check results
     let (mut node0_correct, mut node1_correct, mut node2_correct) = (false, false, false);
 
     let mut attempts_left = 3;
