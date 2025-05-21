@@ -1,4 +1,5 @@
 use common::{
+    async_interface::{AsyncInterface, ReqResPair},
     gm_request_response::{self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response},
     meta_exchange::{
         self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Response as MEResponse, Role,
@@ -52,26 +53,13 @@ impl From<MEEvent> for GatewayEvent {
     }
 }
 
-/// Internal structure that holds channels for inter-module communication
-struct Channels {
-    tx_request: UnboundedSender<Request>,
-    rx_request: UnboundedReceiver<Request>,
-    tx_response: UnboundedSender<Response>,
-    rx_response: Option<UnboundedReceiver<Response>>,
-}
-
-pub struct P2PChannels {
-    pub tx_request: UnboundedSender<Request>,
-    pub rx_response: UnboundedReceiver<Response>,
-}
-
 pub struct P2P {
     pub peer_id: PeerId,
 
     node_urls: Vec<String>,
 
     swarm: Swarm<GatewayBehaviour>,
-    channels: Channels,
+    channels: AsyncInterface<Request, Response>,
 }
 
 impl P2P {
@@ -107,19 +95,11 @@ impl P2P {
                 .with_idle_connection_timeout(Duration::from_secs(60)),
         );
 
-        let (tx_request, rx_request) = mpsc::unbounded_channel::<Request>();
-        let (tx_response, rx_response) = mpsc::unbounded_channel::<Response>();
-
         Ok(P2P {
             node_urls,
             peer_id,
             swarm,
-            channels: Channels {
-                tx_request,
-                rx_request,
-                tx_response,
-                rx_response: Some(rx_response),
-            },
+            channels: AsyncInterface::new(),
         })
     }
 
@@ -138,22 +118,21 @@ impl P2P {
 
     // Gets p2p channels that will be used for communication
     // can be called only once
-    pub fn interface_channels(&mut self) -> P2PChannels {
-        P2PChannels {
-            tx_request: self.channels.tx_request.clone(),
-            rx_response: self.channels.rx_response.take().expect("take only once"),
-        }
+    pub fn interface_channels(&mut self) -> ReqResPair<Request, Response> {
+        self.channels.requester()
     }
 
     /// blocking operation, so you might want to spawn it on a separate thread
     /// after calling this - channels at `interface_channels` will start to send messages
     /// TODO: add stop/finish channel
-    pub async fn start_event_loop(self) {
+    pub async fn start_event_loop(mut self) {
         let mut maroon_peer_ids = HashSet::<PeerId>::new();
         let mut swarm = self.swarm;
 
-        let mut rx_request = self.channels.rx_request;
-        let tx_response = self.channels.tx_response;
+        let requester_channels = self.channels.responder();
+
+        let mut rx_request = requester_channels.receiver;
+        let tx_response = requester_channels.sender;
         loop {
             tokio::select! {
                 Some(request) = rx_request.recv() =>  {

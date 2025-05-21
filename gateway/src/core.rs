@@ -1,10 +1,11 @@
-use crate::p2p::{P2P, P2PChannels};
+use crate::p2p::P2P;
 use common::{
-    gm_request_response::Request,
-    meta_exchange::{Response, Role},
+    async_interface::ReqResPair,
+    gm_request_response::{Request, Response},
+    meta_exchange::{Response as MEResponse, Role},
 };
 pub struct Gateway {
-    p2p_channels: P2PChannels,
+    p2p_channels: ReqResPair<Request, Response>,
     p2p: Option<P2P>,
 }
 
@@ -15,10 +16,8 @@ impl Gateway {
         // I need to create some sort of state/flags or block the thread that can prevent sending requests before initialization even happened
         p2p.prepare().map_err(|e| format!("prepare: {}", e))?;
 
-        let p2p_channels = p2p.interface_channels();
-
         return Ok(Gateway {
-            p2p_channels,
+            p2p_channels: p2p.interface_channels(),
             p2p: Some(p2p),
         });
     }
@@ -34,10 +33,10 @@ impl Gateway {
     pub async fn send_request(
         &mut self,
         request: Request,
-    ) -> Result<Response, Box<dyn std::error::Error>> {
-        self.p2p_channels.tx_request.send(request)?;
+    ) -> Result<MEResponse, Box<dyn std::error::Error>> {
+        self.p2p_channels.sender.send(request)?;
 
         // TODO: that one doesn't work correctly. I need to listen to a related rx_response to get the right info
-        return Ok(Response { role: Role::Node });
+        return Ok(MEResponse { role: Role::Node });
     }
 }
