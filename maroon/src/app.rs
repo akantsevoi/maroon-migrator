@@ -1,22 +1,44 @@
-use crate::p2p_interface::{Inbox, NodeState, Outbox, P2PChannels};
+use crate::app_interface::{CurrentOffsets, Request, Response};
+use crate::p2p_interface::{Inbox, NodeState, Outbox};
 use common::{
+    async_interface::{AsyncInterface, ReqResPair},
     gm_request_response::Transaction,
     range_key::{self, KeyOffset, KeyRange, TransactionID},
 };
 use libp2p::PeerId;
-use log::{debug, error, info, warn};
+use log::{error, info};
 use std::{
     collections::{HashMap, HashSet},
     num::NonZeroUsize,
     time::Duration,
 };
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
-pub struct App {
+#[derive(Clone, Copy, Debug)]
+pub struct Params {
+    /// how often node will send state info to other nodes
+    pub advertise_period: std::time::Duration,
     /// minimum amount of nodes that should have the same transactions(+ current one) in order to confirm them
-    consensus_nodes: NonZeroUsize,
+    /// TODO: separate pub struct ConsensusAlgoParams in a separate lib/consensus crate with its own test suite?
+    pub consensus_nodes: NonZeroUsize,
+}
+
+impl Params {
+    pub fn default() -> Params {
+        Params {
+            advertise_period: Duration::from_secs(5),
+            consensus_nodes: NonZeroUsize::new(2).unwrap(),
+        }
+    }
+}
+
+pub struct App {
+    params: Params,
+
     peer_id: PeerId,
-    channels: P2PChannels,
+    p2p_interface: ReqResPair<Outbox, Inbox>,
+    state_interface: AsyncInterface<Request, Response>,
 
     /// offsets for the current node
     self_offsets: HashMap<KeyRange, KeyOffset>,
@@ -34,11 +56,16 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(peer_id: PeerId, channels: P2PChannels) -> Result<App, Box<dyn std::error::Error>> {
+    pub fn new(
+        peer_id: PeerId,
+        p2p_interface: ReqResPair<Outbox, Inbox>,
+        params: Params,
+    ) -> Result<App, Box<dyn std::error::Error>> {
         Ok(App {
-            consensus_nodes: NonZeroUsize::new(2).unwrap(), // TODO: move to constructor+env variables
+            params,
             peer_id,
-            channels,
+            p2p_interface,
+            state_interface: AsyncInterface::new(),
             offsets: HashMap::new(),
             self_offsets: HashMap::new(),
             consensus_offset: HashMap::new(),
@@ -46,24 +73,28 @@ impl App {
         })
     }
 
+    /// can be called only once because we're moving ownership of receiver channels
+    pub fn get_state_interface(&mut self) -> ReqResPair<Request, Response> {
+        self.state_interface.requester()
+    }
+
     /// starts a loop that processes events and executes logic
     pub async fn loop_until_shutdown(&mut self, mut shutdown: oneshot::Receiver<()>) {
-        let mut ticker = tokio::time::interval(Duration::from_secs(5));
-
+        let mut ticker = tokio::time::interval(self.params.advertise_period);
+        let mut p = self.state_interface.responder();
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
-                    self.recalculate_consensus_offsets();
-                    if let Err(e)=self.channels.sender.send( Outbox::State(NodeState{offsets: self.self_offsets.clone()})) {
-                        error!("main send: {e}");
-                        continue;
-                    };
+                    self.handle_on_tick();
                 },
-                Some(payload) = self.channels.receiver.recv() =>  {
+                Some(request) = p.receiver.recv() => {
+                    self.handle_request(request, &p.sender);
+                },
+                Some(payload) = self.p2p_interface.receiver.recv() => {
                     self.handle_inbox_message(payload);
                 },
                 _ = &mut shutdown =>{
-                    info!("shutdown the app");
+                    info!("TODO: shutdown the app");
                     break;
                 }
             }
@@ -73,7 +104,7 @@ impl App {
     fn recalculate_consensus_offsets(&mut self) {
         // TODO: Should I be worried that I might have some stale values in consensus_offset?
         for (k, v) in &self.offsets {
-            if let Some(max) = consensus_maximum(&v, self.consensus_nodes) {
+            if let Some(max) = consensus_maximum(&v, self.params.consensus_nodes) {
                 self.consensus_offset.insert(*k, *max);
             }
         }
@@ -111,6 +142,28 @@ impl App {
                     };
 
                     mut_range.insert(self.peer_id, new_offset);
+                }
+            }
+        }
+    }
+
+    fn handle_on_tick(&mut self) {
+        self.recalculate_consensus_offsets();
+        if let Err(e) = self.p2p_interface.sender.send(Outbox::State(NodeState {
+            offsets: self.self_offsets.clone(),
+        })) {
+            error!("main send: {e}");
+        };
+    }
+
+    fn handle_request(&self, request: Request, sender: &UnboundedSender<Response>) {
+        match request {
+            Request::GetState => {
+                if let Err(e) = sender.send(Response::State(CurrentOffsets {
+                    self_offsets: self.self_offsets.clone(),
+                    consensus_offset: self.consensus_offset.clone(),
+                })) {
+                    error!("state_interface: {e}");
                 }
             }
         }
@@ -183,8 +236,9 @@ fn recalculate_order(self_id: PeerId, ids: &HashSet<PeerId>) {
 
 #[cfg(test)]
 impl App {
-    pub fn new_test_instance(channels: P2PChannels) -> App {
-        App::new(PeerId::random(), channels).expect("failed to create test App instance")
+    pub fn new_test_instance(channels: ReqResPair<Outbox, Inbox>) -> App {
+        App::new(PeerId::random(), channels, Params::default())
+            .expect("failed to create test App instance")
     }
 }
 
@@ -203,7 +257,7 @@ mod tests {
         let n1_peer_id = PeerId::random();
         let n2_peer_id = PeerId::random();
 
-        let mut app = App::new_test_instance(P2PChannels {
+        let mut app = App::new_test_instance(ReqResPair {
             receiver: rx_in,
             sender: tx_out,
         });

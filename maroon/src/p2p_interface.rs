@@ -8,13 +8,6 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
 };
-use tokio::sync::mpsc;
-
-/// Inter-modules communication
-pub struct P2PChannels {
-    pub receiver: mpsc::UnboundedReceiver<Inbox>,
-    pub sender: mpsc::UnboundedSender<Outbox>,
-}
 
 /// Input for p2p layer from higher modules perspective
 #[derive(Serialize, Deserialize, Debug, Clone)]

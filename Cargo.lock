@@ -541,6 +541,7 @@ dependencies = [
  "libp2p",
  "libp2p-request-response",
  "serde",
+ "tokio",
 ]
 
 [[package]]
@@ -1067,6 +1068,7 @@ name = "gateway"
 version = "0.1.0"
 dependencies = [
  "common",
+ "derive_more",
  "env_logger",
  "futures",
  "libp2p",
@@ -1650,6 +1652,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "integration"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "env_logger",
+ "futures",
+ "gateway",
+ "libp2p",
+ "maroon",
+ "tokio",
+ "tokio-test",
+]
+
+[[package]]
 name = "ipconfig"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2207,6 +2223,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "common",
+ "derive_more",
  "env_logger",
  "etcd-client",
  "futures",
@@ -3553,6 +3570,19 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+]
+
+[[package]]
+name = "tokio-test"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2468baabc3311435b55dd935f702f42cd1b8abb7e754fb7dfb16bd36aa88f9f7"
+dependencies = [
+ "async-stream",
+ "bytes",
+ "futures-core",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]

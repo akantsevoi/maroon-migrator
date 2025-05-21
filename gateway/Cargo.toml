@@ -1,16 +1,17 @@
 [package]
-name = "gateway"
-version = "0.1.0"
 edition = "2024"
+name = "gateway"
 rust-version = "1.86.0"
+version = "0.1.0"
 
 [dependencies]
 common = { path = "../common" }
-tokio = { workspace = true }
+env_logger = { workspace = true }
+futures = { workspace = true }
 libp2p = { workspace = true }
 libp2p-request-response = { workspace = true }
+log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-futures = { workspace = true }
-env_logger = { workspace = true }
-log = { workspace = true }
+tokio = { workspace = true }
+derive_more = { version = "2.0.1", features = ["from"] }

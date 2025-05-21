@@ -1,7 +1,10 @@
 ETCD_ENDPOINTS := http://localhost:2379,http://localhost:2381,http://localhost:2383
 PORT ?= 3000
 
-.PHONY: run-local shutdown start-etcd build-mn run-compose help
+.PHONY: run-local shutdown start-etcd build-mn run-compose help integtest fmt toolinstall
+
+toolinstall:
+	cargo install taplo-cli
 
 help:
 	@echo "Available commands:"0
@@ -16,8 +19,12 @@ run-local:
 	ETCD_ENDPOINTS=${ETCD_ENDPOINTS} \
 	NODE_URLS=/ip4/127.0.0.1/tcp/3000,/ip4/127.0.0.1/tcp/3001,/ip4/127.0.0.1/tcp/3002 \
 	SELF_URL=/ip4/127.0.0.1/tcp/${PORT} \
-	RUST_LOG=trace \
+	RUST_LOG=debug \
 		cargo run -p maroon
+
+integtest:
+	RUST_LOG=maroon=info,gateway=debug \
+		cargo test -p integration
 
 shutdown:
 	docker compose -f deploy/maroon/docker-compose.yaml down --remove-orphans
@@ -35,3 +42,7 @@ build-mn:
 run-compose:
 	RUST_LOG=info \
 		docker compose -f deploy/maroon/docker-compose.yaml up 
+
+fmt:
+	cargo fmt --all
+	taplo format

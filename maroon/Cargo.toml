@@ -1,20 +1,20 @@
 [package]
-name = "maroon"
-version = "0.1.0"
 edition = "2024"
+name = "maroon"
 rust-version = "1.86.0"
+version = "0.1.0"
 
 [dependencies]
+chrono = "0.4.41"
 common = { path = "../common" }
-tokio = { workspace = true }
+env_logger = { workspace = true }
+etcd-client = "0.14.1"
+futures = { workspace = true }
 libp2p = { workspace = true }
 libp2p-request-response = { workspace = true }
+log = { workspace = true }
+rand = "0.9.1"
 serde = { workspace = true }
 serde_json = { workspace = true }
-futures = { workspace = true }
-env_logger = { workspace = true }
-log = { workspace = true }
-
-etcd-client = "0.14.1"
-rand = "0.9.1"
-chrono = "0.4.41"
+tokio = { workspace = true }
+derive_more = { version = "2.0.1", features = ["from"] }
