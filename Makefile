@@ -1,7 +1,10 @@
 ETCD_ENDPOINTS := http://localhost:2379,http://localhost:2381,http://localhost:2383
 PORT ?= 3000
 
-.PHONY: run-local shutdown start-etcd build-mn run-compose help integtest fmt
+.PHONY: run-local shutdown start-etcd build-mn run-compose help integtest fmt toolinstall
+
+toolinstall:
+	cargo install taplo-cli
 
 help:
 	@echo "Available commands:"0
@@ -42,3 +45,4 @@ run-compose:
 
 fmt:
 	cargo fmt --all
+	taplo format
