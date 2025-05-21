@@ -20,6 +20,7 @@ pub struct Params {
     /// how often node will send state info to other nodes
     pub advertise_period: std::time::Duration,
     /// minimum amount of nodes that should have the same transactions(+ current one) in order to confirm them
+    /// TODO: separate pub struct ConsensusAlgoParams in a separate lib/consensus crate with its own test suite?
     pub consensus_nodes: NonZeroUsize,
 }
 
@@ -61,7 +62,7 @@ impl App {
         params: Params,
     ) -> Result<App, Box<dyn std::error::Error>> {
         Ok(App {
-            params: params,
+            params,
             peer_id,
             p2p_interface,
             state_interface: AsyncInterface::new(),
