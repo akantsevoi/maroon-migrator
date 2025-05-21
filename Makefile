@@ -19,7 +19,7 @@ run-local:
 	RUST_LOG=debug \
 		cargo run -p maroon
 
-integest:
+integtest:
 	RUST_LOG=maroon=info,gateway=debug \
 		cargo test -p integration
 
