@@ -1,5 +1,5 @@
 use crate::app_interface::{CurrentOffsets, Request, Response};
-use crate::p2p_interface::{Inbox, NodeState, Outbox, P2PChannels};
+use crate::p2p_interface::{Inbox, NodeState, Outbox};
 use common::{
     async_interface::{AsyncInterface, ReqResPair},
     gm_request_response::Transaction,
@@ -35,7 +35,7 @@ pub struct App {
     params: Params,
 
     peer_id: PeerId,
-    channels: P2PChannels,
+    p2p_interface: ReqResPair<Outbox, Inbox>,
     state_interface: AsyncInterface<Request, Response>,
 
     /// offsets for the current node
@@ -56,13 +56,13 @@ pub struct App {
 impl App {
     pub fn new(
         peer_id: PeerId,
-        channels: P2PChannels,
+        p2p_interface: ReqResPair<Outbox, Inbox>,
         params: Params,
     ) -> Result<App, Box<dyn std::error::Error>> {
         Ok(App {
             params: params,
             peer_id,
-            channels,
+            p2p_interface,
             state_interface: AsyncInterface::new(),
             offsets: HashMap::new(),
             self_offsets: HashMap::new(),
@@ -85,7 +85,7 @@ impl App {
             tokio::select! {
                 _ = ticker.tick() => {
                     self.recalculate_consensus_offsets();
-                    if let Err(e)=self.channels.sender.send( Outbox::State(NodeState{offsets: self.self_offsets.clone()})) {
+                    if let Err(e)=self.p2p_interface.sender.send( Outbox::State(NodeState{offsets: self.self_offsets.clone()})) {
                         error!("main send: {e}");
                         continue;
                     };
@@ -99,7 +99,7 @@ impl App {
                         },
                     }
                 },
-                Some(payload) = self.channels.receiver.recv() =>  {
+                Some(payload) = self.p2p_interface.receiver.recv() =>  {
                     self.handle_inbox_message(payload);
                 },
                 _ = &mut shutdown =>{
@@ -223,7 +223,7 @@ fn recalculate_order(self_id: PeerId, ids: &HashSet<PeerId>) {
 
 #[cfg(test)]
 impl App {
-    pub fn new_test_instance(channels: P2PChannels) -> App {
+    pub fn new_test_instance(channels: ReqResPair<Outbox, Inbox>) -> App {
         App::new(PeerId::random(), channels, Params::default())
             .expect("failed to create test App instance")
     }
@@ -244,7 +244,7 @@ mod tests {
         let n1_peer_id = PeerId::random();
         let n2_peer_id = PeerId::random();
 
-        let mut app = App::new_test_instance(P2PChannels {
+        let mut app = App::new_test_instance(ReqResPair {
             receiver: rx_in,
             sender: tx_out,
         });

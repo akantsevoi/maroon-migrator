@@ -1,5 +1,6 @@
 use crate::p2p_interface;
 use common::{
+    async_interface::{AsyncInterface, ReqResPair},
     gm_request_response::{self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response},
     meta_exchange::{
         self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Request as MERequest,
@@ -24,10 +25,10 @@ use libp2p::{
 };
 use libp2p_request_response::{Message as RequestResponseMessage, ProtocolSupport};
 use log::{debug, error, info, warn};
-use p2p_interface::{Inbox, Outbox, P2PChannels};
+use p2p_interface::{Inbox, Outbox};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt::Debug, time::Duration};
-use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "MaroonEvent")]
@@ -69,19 +70,6 @@ impl From<MEEvent> for MaroonEvent {
     }
 }
 
-/// Internal structure that holds channels for inter-module communication
-struct Channels {
-    tx_in: UnboundedSender<Inbox>,
-    rx_in: Owned<UnboundedReceiver<Inbox>>,
-    tx_out: UnboundedSender<Outbox>,
-    rx_out: UnboundedReceiver<Outbox>,
-}
-
-enum Owned<T> {
-    Here(T),
-    Moved,
-}
-
 pub struct P2P {
     pub peer_id: PeerId,
 
@@ -91,7 +79,7 @@ pub struct P2P {
     swarm: Swarm<MaroonBehaviour>,
     node_p2p_topic: TopicHash,
 
-    channels: Channels,
+    channels: AsyncInterface<Inbox, Outbox>,
 }
 
 impl P2P {
@@ -146,21 +134,13 @@ impl P2P {
                 .with_idle_connection_timeout(Duration::from_secs(60)),
         );
 
-        let (tx_in, rx_in) = mpsc::unbounded_channel::<Inbox>();
-        let (tx_out, rx_out) = mpsc::unbounded_channel::<Outbox>();
-
         Ok(P2P {
             node_urls,
             self_url,
             peer_id,
             swarm,
             node_p2p_topic: node_p2p_topic.hash().clone(),
-            channels: Channels {
-                tx_in,
-                rx_in: Owned::Here(rx_in),
-                tx_out,
-                rx_out,
-            },
+            channels: AsyncInterface::new(),
         })
     }
 
@@ -185,37 +165,24 @@ impl P2P {
 
     /// Gets p2p channels that will be used for communication
     /// can be called only once
-    pub fn interface_channels(&mut self) -> P2PChannels {
-        let mut moved = Owned::Moved;
-        std::mem::swap(&mut moved, &mut self.channels.rx_in);
-
-        match moved {
-            Owned::Moved => {
-                todo!(
-                    "already moved. This fn can be called only once. Maybe return proper error here?"
-                )
-            }
-            Owned::Here(rx_in) => {
-                return P2PChannels {
-                    receiver: rx_in,
-                    sender: self.channels.tx_out.clone(),
-                };
-            }
-        }
+    pub fn interface_channels(&mut self) -> ReqResPair<Outbox, Inbox> {
+        self.channels.responder()
     }
 
     /// blocking operation, so you might want to spawn it on a separate thread
     /// after calling this - channels at `interface_channels` will start to send messages
     /// TODO: add stop/finish channel
-    pub async fn start_event_loop(self) {
+    pub async fn start_event_loop(mut self) {
         let mut alive_peer_ids: HashSet<PeerId> = HashSet::new();
         let mut alive_gateway_ids: HashSet<PeerId> = HashSet::new();
 
         alive_peer_ids.insert(self.peer_id);
         let mut swarm = self.swarm;
 
-        let mut rx_out = self.channels.rx_out;
-        let tx_in = self.channels.tx_in;
+        let req_channels = self.channels.requester();
+        let mut rx_out = req_channels.receiver;
+        let tx_in = req_channels.sender;
+
         loop {
             tokio::select! {
                 Some(Outbox::State(state)) = rx_out.recv() =>  {
