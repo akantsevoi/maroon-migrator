@@ -6,7 +6,6 @@ use common::{
     },
 };
 use futures::StreamExt;
-use libp2p::dns::Transport as DnsTransport;
 use libp2p::{
     Multiaddr, PeerId,
     core::{transport::Transport as _, upgrade},
@@ -17,9 +16,11 @@ use libp2p::{
     tcp::{Config as TcpConfig, tokio::Transport as TcpTokioTransport},
     yamux::Config as YamuxConfig,
 };
+use libp2p::{dns::Transport as DnsTransport, gossipsub::Event};
 use libp2p_request_response::{Message as RequestResponseMessage, ProtocolSupport};
 use log::{debug, info};
 use std::{collections::HashSet, time::Duration};
+use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "GatewayEvent")]
@@ -125,74 +126,99 @@ impl P2P {
     /// after calling this - channels at `interface_channels` will start to send messages
     /// TODO: add stop/finish channel
     pub async fn start_event_loop(mut self) {
-        let mut maroon_peer_ids = HashSet::<PeerId>::new();
+        let mut maroon_peer_ids: HashSet<PeerId> = HashSet::<PeerId>::new();
         let mut swarm = self.swarm;
 
         let requester_channels = self.channels.responder();
 
-        let mut rx_request = requester_channels.receiver;
-        let tx_response = requester_channels.sender;
+        let mut receiver = requester_channels.receiver;
+        let sender = requester_channels.sender;
         loop {
             tokio::select! {
-                Some(request) = rx_request.recv() =>  {
+                Some(request) = receiver.recv() => {
                     for peer_id in &maroon_peer_ids {
                         debug!("Sending request to {}", peer_id);
                         let _request_id = swarm.behaviour_mut().request_response.send_request(peer_id, request.clone());
                     }
                 },
-                event = swarm.select_next_some()=>{
-                    match event{
-                        SwarmEvent::Behaviour(GatewayEvent::RequestResponse(gm_request_response)) => {
-                            debug!("RequestResponse: {:?}", gm_request_response);
-                            match gm_request_response{
-                                GMEvent::Message{ message, .. } => {
-                                    match message{
-                                        RequestResponseMessage::Response{request_id, response} => {
-                                            debug!("Response: {:?}, {:?}", request_id, response);
-                                            tx_response.send(response).unwrap();
-                                        },
-                                        _=>{},
-                                    }
-                                },
-                                _ => {},
-                            }
-                        },
-                        SwarmEvent::Behaviour(GatewayEvent::MetaExchange(meta_exchange)) =>{
-                            debug!("MetaExchange: {:?}", meta_exchange);
-                            match meta_exchange{
-                                MEEvent::Message{ message, .. } => {
-                                    match message{
-                                        RequestResponseMessage::Response{request_id, response} => {
-                                            debug!("MetaExchangeResponse: {:?} {:?}", request_id, response);
-                                        },
-                                        RequestResponseMessage::Request{ channel,..} => {
-                                            let res = swarm.behaviour_mut().meta_exchange.send_response(channel, MEResponse{role: Role::Gateway});
-                                            debug!("MetaExchangeRequestRes: {:?}", res);
-                                        },
-                                    }
-                                },
-                                _=>{},
-                            }
-                        },
-                    // SwarmEvent::Behaviour(GatewayEvent::Ping(PingEvent { .. })) =>{
-                    //     // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
-                    // },
-                    SwarmEvent::ConnectionEstablished { peer_id, .. } =>{
-                        maroon_peer_ids.insert(peer_id);
-                        debug!("connected to {}", peer_id);
-                    },
-                    SwarmEvent::ConnectionClosed { peer_id, ..}=>{
-                        maroon_peer_ids.remove(&peer_id);
-                        debug!("disconnected from {}", peer_id);
-                    },
-
-                    SwarmEvent::OutgoingConnectionError { peer_id, connection_id, error } => {
-                        debug!("OutgoingConnectionError: {peer_id:?} {connection_id} {error}");
-                    },
-                    _ => {}
-                    }
+                event = swarm.select_next_some() => {
+                    handle_swarm_event(
+                        &mut swarm,
+                        event,
+                        &sender,
+                        &mut maroon_peer_ids,
+                    );
                 }
             }
         }
+    }
+}
+
+fn handle_swarm_event(
+    swarm: &mut Swarm<GatewayBehaviour>,
+    event: SwarmEvent<GatewayEvent>,
+    sender: &UnboundedSender<Response>,
+    maroon_peer_ids: &mut HashSet<PeerId>,
+) {
+    match event {
+        SwarmEvent::Behaviour(GatewayEvent::RequestResponse(gm_request_response)) => {
+            debug!("RequestResponse: {:?}", gm_request_response);
+            match gm_request_response {
+                GMEvent::Message { message, .. } => match message {
+                    RequestResponseMessage::Response {
+                        request_id,
+                        response,
+                    } => {
+                        debug!("Response: {:?}, {:?}", request_id, response);
+                        sender.send(response).unwrap();
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+        SwarmEvent::Behaviour(GatewayEvent::MetaExchange(meta_exchange)) => {
+            debug!("MetaExchange: {:?}", meta_exchange);
+            match meta_exchange {
+                MEEvent::Message { message, .. } => match message {
+                    RequestResponseMessage::Response {
+                        request_id,
+                        response,
+                    } => {
+                        debug!("MetaExchangeResponse: {:?} {:?}", request_id, response);
+                    }
+                    RequestResponseMessage::Request { channel, .. } => {
+                        let res = swarm.behaviour_mut().meta_exchange.send_response(
+                            channel,
+                            MEResponse {
+                                role: Role::Gateway,
+                            },
+                        );
+                        debug!("MetaExchangeRequestRes: {:?}", res);
+                    }
+                },
+                _ => {}
+            }
+        }
+        // SwarmEvent::Behaviour(GatewayEvent::Ping(PingEvent { .. })) =>{
+        //     // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
+        // },
+        SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+            maroon_peer_ids.insert(peer_id);
+            debug!("connected to {}", peer_id);
+        }
+        SwarmEvent::ConnectionClosed { peer_id, .. } => {
+            maroon_peer_ids.remove(&peer_id);
+            debug!("disconnected from {}", peer_id);
+        }
+
+        SwarmEvent::OutgoingConnectionError {
+            peer_id,
+            connection_id,
+            error,
+        } => {
+            debug!("OutgoingConnectionError: {peer_id:?} {connection_id} {error}");
+        }
+        _ => {}
     }
 }

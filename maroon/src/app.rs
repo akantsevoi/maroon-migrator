@@ -89,7 +89,7 @@ impl App {
                 Some(request) = p.receiver.recv() => {
                     self.handle_request(request, &p.sender);
                 },
-                Some(payload) = self.p2p_interface.receiver.recv() =>  {
+                Some(payload) = self.p2p_interface.receiver.recv() => {
                     self.handle_inbox_message(payload);
                 },
                 _ = &mut shutdown =>{

@@ -1,4 +1,4 @@
-use crate::p2p_interface;
+use crate::p2p_interface::{self, NodeState};
 use common::{
     async_interface::{AsyncInterface, ReqResPair},
     gm_request_response::{self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response},
@@ -180,73 +180,115 @@ impl P2P {
         let mut swarm = self.swarm;
 
         let req_channels = self.channels.requester();
-        let mut rx_out = req_channels.receiver;
-        let tx_in = req_channels.sender;
+        let mut receiver = req_channels.receiver;
+        let sender = req_channels.sender;
 
         loop {
             tokio::select! {
-                Some(Outbox::State(state)) = rx_out.recv() =>  {
-                    let message = P2pMessage {
-                        peer_id: self.peer_id,
-                        payload: Outbox::State(state),
-                    };
-
-                    let bytes = guard_ok!(serde_json::to_vec(&message), e, {
-                        error!("serialize message error: {e}");
-                        continue;
-                    });
-
-                    if let Err(e) = swarm
-                        .behaviour_mut()
-                        .gossipsub
-                        .publish(self.node_p2p_topic.clone(), bytes){
-                            warn!("publish error: {}", e);
-                        }
+                Some(Outbox::State(state)) = receiver.recv() => {
+                    handle_receiver_outbox(
+                        &mut swarm,
+                        state,
+                        self.peer_id,
+                        self.node_p2p_topic.clone(),
+                    );
                 },
-                event = swarm.select_next_some()=>{
-                    match event{
-                    SwarmEvent::Behaviour(MaroonEvent::Gossipsub(GossipsubEvent::Message {
-                        propagation_source: _,
-                        message_id: _,
-                        message,
-                    })) => match serde_json::from_slice::<P2pMessage>(&message.data) {
-                        Ok(p2p_message) => {
-                            match p2p_message.payload {
-                               Outbox::State(state) => {
-                                _=tx_in.send(Inbox::State((p2p_message.peer_id, state)));
-                               },
-                            }
-                        }
-                        Err(e) => {
-                            error!("swarm deserialize: {e}");
-                        }
-                    },
-                    SwarmEvent::Behaviour(MaroonEvent::MetaExchange(meta_exchange)) =>{
-                        handle_meta_exchange(&mut swarm, meta_exchange, &mut alive_peer_ids, &mut alive_gateway_ids, &tx_in);
-                    },
-                    SwarmEvent::Behaviour(MaroonEvent::Ping(PingEvent { .. })) =>{
-                        // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
-                    },
-                    SwarmEvent::Behaviour(MaroonEvent::RequestResponse(gm_request_response)) =>{
-                        handle_request_response(&mut swarm, &tx_in, gm_request_response);
-                    },
-                    SwarmEvent::ConnectionEstablished { peer_id, .. } =>{
-                        swarm.behaviour_mut().meta_exchange.send_request(&peer_id, MERequest{role: Role::Node});
-                    },
-                    SwarmEvent::ConnectionClosed { peer_id, ..}=>{
-                        alive_gateway_ids.remove(&peer_id);
-                        if alive_peer_ids.remove(&peer_id) {
-                            _=tx_in.send(Inbox::Nodes(alive_peer_ids.clone()));
-                        }
-                    },
-                    SwarmEvent::OutgoingConnectionError { peer_id, connection_id, error } => {
-                        debug!("OutgoingConnectionError: {peer_id:?} {connection_id} {error}");
-                    },
-                    _ => {}
-                    }
+                event = swarm.select_next_some() => {
+                    handle_swarm_event(
+                        &mut swarm,
+                        event,
+                        &sender,
+                        &mut alive_peer_ids,
+                        &mut alive_gateway_ids,
+                    );
                 }
             }
         }
+    }
+}
+
+fn handle_receiver_outbox(
+    swarm: &mut Swarm<MaroonBehaviour>,
+    state: NodeState,
+    peer_id: PeerId,
+    node_p2p_topic: TopicHash,
+) {
+    let message = P2pMessage {
+        peer_id: peer_id,
+        payload: Outbox::State(state),
+    };
+
+    let bytes = guard_ok!(serde_json::to_vec(&message), e, {
+        error!("serialize message error: {e}");
+        return;
+    });
+
+    if let Err(e) = swarm
+        .behaviour_mut()
+        .gossipsub
+        .publish(node_p2p_topic, bytes)
+    {
+        warn!("publish error: {}", e);
+    }
+}
+
+fn handle_swarm_event(
+    swarm: &mut Swarm<MaroonBehaviour>,
+    event: SwarmEvent<MaroonEvent>,
+    sender: &UnboundedSender<Inbox>,
+    alive_peer_ids: &mut HashSet<PeerId>,
+    alive_gateway_ids: &mut HashSet<PeerId>,
+) {
+    match event {
+        SwarmEvent::Behaviour(MaroonEvent::Gossipsub(GossipsubEvent::Message {
+            propagation_source: _,
+            message_id: _,
+            message,
+        })) => match serde_json::from_slice::<P2pMessage>(&message.data) {
+            Ok(p2p_message) => match p2p_message.payload {
+                Outbox::State(state) => {
+                    _ = sender.send(Inbox::State((p2p_message.peer_id, state)));
+                }
+            },
+            Err(e) => {
+                error!("swarm deserialize: {e}");
+            }
+        },
+        SwarmEvent::Behaviour(MaroonEvent::MetaExchange(meta_exchange)) => {
+            handle_meta_exchange(
+                swarm,
+                meta_exchange,
+                alive_peer_ids,
+                alive_gateway_ids,
+                sender,
+            );
+        }
+        SwarmEvent::Behaviour(MaroonEvent::Ping(PingEvent { .. })) => {
+            // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
+        }
+        SwarmEvent::Behaviour(MaroonEvent::RequestResponse(gm_request_response)) => {
+            handle_request_response(swarm, &sender, gm_request_response);
+        }
+        SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+            swarm
+                .behaviour_mut()
+                .meta_exchange
+                .send_request(&peer_id, MERequest { role: Role::Node });
+        }
+        SwarmEvent::ConnectionClosed { peer_id, .. } => {
+            alive_gateway_ids.remove(&peer_id);
+            if alive_peer_ids.remove(&peer_id) {
+                _ = sender.send(Inbox::Nodes(alive_peer_ids.clone()));
+            }
+        }
+        SwarmEvent::OutgoingConnectionError {
+            peer_id,
+            connection_id,
+            error,
+        } => {
+            debug!("OutgoingConnectionError: {peer_id:?} {connection_id} {error}");
+        }
+        _ => {}
     }
 }
 
