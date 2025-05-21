@@ -8,5 +8,4 @@ serde = { workspace = true }
 libp2p = { workspace = true }
 libp2p-request-response = { workspace = true }
 tokio = { workspace = true }
-
 derive_more = { version = "2.0.1", features = ["add", "add_assign", "display"] }

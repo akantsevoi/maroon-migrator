@@ -1,27 +1,22 @@
 [workspace]
-members = [
-  "common",
-  "gateway",
-  "maroon",
-  "tests/integration",
-]
+members = ["common", "gateway", "maroon", "tests/integration"]
 resolver = "3"
 
 [workspace.dependencies]
 tokio = { version = "1.43.0", features = ["full"] }
 libp2p = { version = "0.55.0", default-features = false, features = [
-    "tcp",
-    "tokio",
-    "noise",
-    "yamux",
-    "gossipsub",
-    "ping",
-    "macros",
-    "plaintext",
-    "serde",
-    "gossipsub",
-    "dns",
-    "tls",
+  "tcp",
+  "tokio",
+  "noise",
+  "yamux",
+  "gossipsub",
+  "ping",
+  "macros",
+  "plaintext",
+  "serde",
+  "gossipsub",
+  "dns",
+  "tls",
 ] }
 libp2p-request-response = { version = "0.28.0", features = ["json"] }
 

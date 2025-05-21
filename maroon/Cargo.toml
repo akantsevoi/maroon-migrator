@@ -14,7 +14,6 @@ serde_json = { workspace = true }
 futures = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
-
 etcd-client = "0.14.1"
 rand = "0.9.1"
 chrono = "0.4.41"

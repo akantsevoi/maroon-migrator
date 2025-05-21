@@ -1,7 +1,7 @@
 ETCD_ENDPOINTS := http://localhost:2379,http://localhost:2381,http://localhost:2383
 PORT ?= 3000
 
-.PHONY: run-local shutdown start-etcd build-mn run-compose help
+.PHONY: run-local shutdown start-etcd build-mn run-compose help integtest fmt
 
 help:
 	@echo "Available commands:"0
@@ -39,3 +39,6 @@ build-mn:
 run-compose:
 	RUST_LOG=info \
 		docker compose -f deploy/maroon/docker-compose.yaml up 
+
+fmt:
+	cargo fmt --all
