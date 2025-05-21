@@ -62,8 +62,8 @@ mod tests {
     #[test]
     fn common() {
         let mut interface = AsyncInterface::<String, u32>::new();
-        let _ = interface.requester();
-        let _ = interface.responder();
+        _ = interface.requester();
+        _ = interface.responder();
 
         assert!(interface.rx_request.is_none());
         assert!(interface.tx_request.is_none());
