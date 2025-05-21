@@ -7,6 +7,7 @@ use common::{
         Response as MEResponse, Role,
     },
 };
+use derive_more::From;
 use futures::StreamExt;
 use libp2p::dns::Transport as DnsTransport;
 use libp2p::{
@@ -39,35 +40,12 @@ struct MaroonBehaviour {
     meta_exchange: MetaExchangeBehaviour,
 }
 
+#[derive(From)]
 pub enum MaroonEvent {
     Ping(PingEvent),
     Gossipsub(GossipsubEvent),
     RequestResponse(GMEvent),
     MetaExchange(MEEvent),
-}
-
-impl From<PingEvent> for MaroonEvent {
-    fn from(e: PingEvent) -> Self {
-        MaroonEvent::Ping(e)
-    }
-}
-
-impl From<GossipsubEvent> for MaroonEvent {
-    fn from(e: GossipsubEvent) -> Self {
-        MaroonEvent::Gossipsub(e)
-    }
-}
-
-impl From<GMEvent> for MaroonEvent {
-    fn from(e: GMEvent) -> Self {
-        MaroonEvent::RequestResponse(e)
-    }
-}
-
-impl From<MEEvent> for MaroonEvent {
-    fn from(e: MEEvent) -> Self {
-        MaroonEvent::MetaExchange(e)
-    }
 }
 
 pub struct P2P {

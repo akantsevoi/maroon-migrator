@@ -5,6 +5,7 @@ use common::{
         self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Response as MEResponse, Role,
     },
 };
+use derive_more::From;
 use futures::StreamExt;
 use libp2p::{
     Multiaddr, PeerId,
@@ -29,28 +30,12 @@ struct GatewayBehaviour {
     request_response: GMBehaviour,
     meta_exchange: MetaExchangeBehaviour,
 }
+
+#[derive(From)]
 pub enum GatewayEvent {
     Ping(PingEvent),
     RequestResponse(GMEvent),
     MetaExchange(MEEvent),
-}
-
-impl From<PingEvent> for GatewayEvent {
-    fn from(e: PingEvent) -> Self {
-        GatewayEvent::Ping(e)
-    }
-}
-
-impl From<GMEvent> for GatewayEvent {
-    fn from(e: GMEvent) -> Self {
-        GatewayEvent::RequestResponse(e)
-    }
-}
-
-impl From<MEEvent> for GatewayEvent {
-    fn from(e: MEEvent) -> Self {
-        GatewayEvent::MetaExchange(e)
-    }
 }
 
 pub struct P2P {
