@@ -1,12 +1,11 @@
-use crate::value::Value;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 /// Inter-modules communication
 pub struct AsyncInterface<Req, Res> {
-    tx_request: Value<UnboundedSender<Req>>,
-    rx_request: Value<UnboundedReceiver<Req>>,
-    tx_response: Value<UnboundedSender<Res>>,
-    rx_response: Value<UnboundedReceiver<Res>>,
+    tx_request: Option<UnboundedSender<Req>>,
+    rx_request: Option<UnboundedReceiver<Req>>,
+    tx_response: Option<UnboundedSender<Res>>,
+    rx_response: Option<UnboundedReceiver<Res>>,
 }
 
 pub struct ReqResPair<S, R> {
@@ -20,26 +19,38 @@ impl<Req, Res> AsyncInterface<Req, Res> {
         let (tx_response, rx_response) = mpsc::unbounded_channel::<Res>();
 
         AsyncInterface {
-            tx_request: Value::Here(tx_request),
-            rx_request: Value::Here(rx_request),
-            tx_response: Value::Here(tx_response),
-            rx_response: Value::Here(rx_response),
+            tx_request: Some(tx_request),
+            rx_request: Some(rx_request),
+            tx_response: Some(tx_response),
+            rx_response: Some(rx_response),
         }
     }
 
     /// can be called only once
     pub fn requester(&mut self) -> ReqResPair<Req, Res> {
         ReqResPair {
-            sender: self.tx_request.extract(),
-            receiver: self.rx_response.extract(),
+            sender: self
+                .tx_request
+                .take()
+                .expect("should be moved out only once"),
+            receiver: self
+                .rx_response
+                .take()
+                .expect("should be moved out only once"),
         }
     }
 
     /// can be called only once
     pub fn responder(&mut self) -> ReqResPair<Res, Req> {
         ReqResPair {
-            sender: self.tx_response.extract(),
-            receiver: self.rx_request.extract(),
+            sender: self
+                .tx_response
+                .take()
+                .expect("should be moved out only once"),
+            receiver: self
+                .rx_request
+                .take()
+                .expect("should be moved out only once"),
         }
     }
 }
@@ -54,9 +65,9 @@ mod tests {
         let _ = interface.requester();
         let _ = interface.responder();
 
-        assert!(!interface.rx_request.contains());
-        assert!(!interface.tx_request.contains());
-        assert!(!interface.rx_response.contains());
-        assert!(!interface.tx_response.contains());
+        assert!(interface.rx_request.is_none());
+        assert!(interface.tx_request.is_none());
+        assert!(interface.rx_response.is_none());
+        assert!(interface.tx_response.is_none());
     }
 }

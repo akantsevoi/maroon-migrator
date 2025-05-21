@@ -57,17 +57,12 @@ struct Channels {
     tx_request: UnboundedSender<Request>,
     rx_request: UnboundedReceiver<Request>,
     tx_response: UnboundedSender<Response>,
-    rx_response: Value<UnboundedReceiver<Response>>,
+    rx_response: Option<UnboundedReceiver<Response>>,
 }
 
 pub struct P2PChannels {
     pub tx_request: UnboundedSender<Request>,
     pub rx_response: UnboundedReceiver<Response>,
-}
-
-enum Value<T> {
-    Here(T),
-    Moved,
 }
 
 pub struct P2P {
@@ -123,7 +118,7 @@ impl P2P {
                 tx_request,
                 rx_request,
                 tx_response,
-                rx_response: Value::Here(rx_response),
+                rx_response: Some(rx_response),
             },
         })
     }
@@ -144,21 +139,9 @@ impl P2P {
     // Gets p2p channels that will be used for communication
     // can be called only once
     pub fn interface_channels(&mut self) -> P2PChannels {
-        let mut moved = Value::Moved;
-        std::mem::swap(&mut moved, &mut self.channels.rx_response);
-
-        match moved {
-            Value::Moved => {
-                todo!(
-                    "already moved. This fn can be called only once. Maybe return proper error here?"
-                )
-            }
-            Value::Here(rx_resp) => {
-                return P2PChannels {
-                    tx_request: self.channels.tx_request.clone(),
-                    rx_response: rx_resp,
-                };
-            }
+        P2PChannels {
+            tx_request: self.channels.tx_request.clone(),
+            rx_response: self.channels.rx_response.take().expect("take only once"),
         }
     }
 

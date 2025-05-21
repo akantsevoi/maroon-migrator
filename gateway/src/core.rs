@@ -5,33 +5,7 @@ use common::{
 };
 pub struct Gateway {
     p2p_channels: P2PChannels,
-    p2p: Value<P2P>,
-}
-
-enum Value<T> {
-    Here(T),
-    Moved,
-}
-
-impl<T> Value<T> {
-    /// extracts value
-    /// can be performed only once if Value::Here, otherwise it will panic
-    fn extract(&mut self) -> T {
-        let mut moved = Value::Moved;
-        std::mem::swap(&mut moved, self);
-
-        match moved {
-            Value::Here(val) => return val,
-            Value::Moved => panic!("was already moved"),
-        }
-    }
-
-    fn contains(&self) -> bool {
-        match self {
-            Value::Here(_) => true,
-            Value::Moved => false,
-        }
-    }
+    p2p: Option<P2P>,
 }
 
 impl Gateway {
@@ -45,12 +19,12 @@ impl Gateway {
 
         return Ok(Gateway {
             p2p_channels,
-            p2p: Value::Here(p2p),
+            p2p: Some(p2p),
         });
     }
 
     pub async fn start_on_background(&mut self) {
-        let p2p = self.p2p.extract();
+        let p2p = self.p2p.take().expect("can be called only once");
 
         tokio::spawn(async move {
             p2p.start_event_loop().await;
