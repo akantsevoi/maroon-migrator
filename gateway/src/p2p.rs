@@ -111,7 +111,7 @@ impl P2P {
     /// after calling this - channels at `interface_channels` will start to send messages
     /// TODO: add stop/finish channel
     pub async fn start_event_loop(mut self) {
-        let mut maroon_peer_ids: HashSet<PeerId> = HashSet::<PeerId>::new();
+        let mut maroon_peer_ids = HashSet::<PeerId>::new();
         let mut swarm = self.swarm;
 
         let requester_channels = self.channels.responder();
