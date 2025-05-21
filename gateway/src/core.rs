@@ -16,13 +16,13 @@ impl Gateway {
         // I need to create some sort of state/flags or block the thread that can prevent sending requests before initialization even happened
         p2p.prepare().map_err(|e| format!("prepare: {}", e))?;
 
-        return Ok(Gateway {
+        Ok(Gateway {
             p2p_channels: p2p.interface_channels(),
             p2p: Some(p2p),
-        });
+        })
     }
 
-    pub async fn start_on_background(&mut self) {
+    pub async fn start_in_background(&mut self) {
         let p2p = self.p2p.take().expect("can be called only once");
 
         tokio::spawn(async move {

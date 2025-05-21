@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect();
 
     let mut gw = gateway::core::Gateway::new(node_urls)?;
-    gw.start_on_background().await;
+    gw.start_in_background().await;
 
     // wait until connected
     tokio::time::sleep(Duration::from_secs(2)).await;

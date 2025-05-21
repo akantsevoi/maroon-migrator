@@ -76,7 +76,7 @@ async fn test_some() {
     tokio::spawn(async move { node1.loop_until_shutdown(shutdown_rx_1).await });
     tokio::spawn(async move { node2.loop_until_shutdown(shutdown_rx_2).await });
 
-    gw.start_on_background().await;
+    gw.start_in_background().await;
 
     // wait until they are connected
     tokio::time::sleep(Duration::from_secs(1)).await;
