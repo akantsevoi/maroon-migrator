@@ -12,6 +12,7 @@ use std::{
     num::NonZeroUsize,
     time::Duration,
 };
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
 #[derive(Clone, Copy, Debug)]
@@ -80,24 +81,13 @@ impl App {
     pub async fn loop_until_shutdown(&mut self, mut shutdown: oneshot::Receiver<()>) {
         let mut ticker = tokio::time::interval(self.params.advertise_period);
         let mut p = self.state_interface.responder();
-
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
-                    self.recalculate_consensus_offsets();
-                    if let Err(e)=self.p2p_interface.sender.send( Outbox::State(NodeState{offsets: self.self_offsets.clone()})) {
-                        error!("main send: {e}");
-                        continue;
-                    };
+                    self.handle_on_tick();
                 },
                 Some(request) = p.receiver.recv() => {
-                    match request {
-                        Request::GetState => {
-                            if let Err(e)=p.sender.send(Response::State(CurrentOffsets { self_offsets: self.self_offsets.clone(), consensus_offset: self.consensus_offset.clone() })){
-                                error!("state_interface: {e}");
-                            }
-                        },
-                    }
+                    self.handle_request(request, &p.sender);
                 },
                 Some(payload) = self.p2p_interface.receiver.recv() =>  {
                     self.handle_inbox_message(payload);
@@ -151,6 +141,28 @@ impl App {
                     };
 
                     mut_range.insert(self.peer_id, new_offset);
+                }
+            }
+        }
+    }
+
+    fn handle_on_tick(&mut self) {
+        self.recalculate_consensus_offsets();
+        if let Err(e) = self.p2p_interface.sender.send(Outbox::State(NodeState {
+            offsets: self.self_offsets.clone(),
+        })) {
+            error!("main send: {e}");
+        };
+    }
+
+    fn handle_request(&self, request: Request, sender: &UnboundedSender<Response>) {
+        match request {
+            Request::GetState => {
+                if let Err(e) = sender.send(Response::State(CurrentOffsets {
+                    self_offsets: self.self_offsets.clone(),
+                    consensus_offset: self.consensus_offset.clone(),
+                })) {
+                    error!("state_interface: {e}");
                 }
             }
         }

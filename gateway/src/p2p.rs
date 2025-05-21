@@ -20,7 +20,6 @@ use libp2p::{
 use libp2p_request_response::{Message as RequestResponseMessage, ProtocolSupport};
 use log::{debug, info};
 use std::{collections::HashSet, time::Duration};
-use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "GatewayEvent")]
