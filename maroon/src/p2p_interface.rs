@@ -8,7 +8,6 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
 };
-use tokio::sync::mpsc;
 
 /// Input for p2p layer from higher modules perspective
 #[derive(Serialize, Deserialize, Debug, Clone)]

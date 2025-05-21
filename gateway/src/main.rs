@@ -2,7 +2,6 @@ use common::{
     gm_request_response::{Request, Transaction, TxStatus},
     range_key::TransactionID,
 };
-use log::{debug, error, info, warn};
 use std::time::Duration;
 
 #[tokio::main]

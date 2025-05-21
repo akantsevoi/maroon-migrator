@@ -17,7 +17,7 @@ use libp2p::{
     yamux::Config as YamuxConfig,
 };
 use libp2p_request_response::{Message as RequestResponseMessage, ProtocolSupport};
-use log::{debug, error, info, warn};
+use log::{debug, info};
 use std::{collections::HashSet, time::Duration};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
