@@ -7,6 +7,7 @@ use common::{
 };
 use derive_more::From;
 use futures::StreamExt;
+use libp2p::dns::Transport as DnsTransport;
 use libp2p::{
     Multiaddr, PeerId,
     core::{transport::Transport as _, upgrade},
@@ -17,7 +18,6 @@ use libp2p::{
     tcp::{Config as TcpConfig, tokio::Transport as TcpTokioTransport},
     yamux::Config as YamuxConfig,
 };
-use libp2p::{dns::Transport as DnsTransport, gossipsub::Event};
 use libp2p_request_response::{Message as RequestResponseMessage, ProtocolSupport};
 use log::{debug, info};
 use std::{collections::HashSet, time::Duration};
