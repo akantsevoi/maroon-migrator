@@ -32,7 +32,7 @@ test:
 
 integtest:
 	RUST_LOG=maroon=info,gateway=debug \
-		cargo test -p integration $(PROFILE_FLAG)
+		cargo test -p integration $(PROFILE_FLAG) -- --test-threads 1
 
 shutdown:
 	docker compose -f deploy/maroon/docker-compose.yaml down --remove-orphans
