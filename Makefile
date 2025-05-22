@@ -1,7 +1,12 @@
 ETCD_ENDPOINTS := http://localhost:2379,http://localhost:2381,http://localhost:2383
 PORT ?= 3000
+PROFILE ?= debug
 
-.PHONY: run-local shutdown start-etcd build-mn run-compose help integtest fmt toolinstall
+ifeq ($(PROFILE),release)
+    PROFILE_FLAG := --release
+endif
+
+.PHONY: run-local shutdown start-etcd build-mn run-compose help integtest fmt toolinstall test
 
 toolinstall:
 	cargo install taplo-cli
@@ -22,9 +27,12 @@ run-local:
 	RUST_LOG=debug \
 		cargo run -p maroon
 
+test:
+	cargo test --workspace --exclude integration $(PROFILE_FLAG)
+
 integtest:
 	RUST_LOG=maroon=info,gateway=debug \
-		cargo test -p integration
+		cargo test -p integration $(PROFILE_FLAG)
 
 shutdown:
 	docker compose -f deploy/maroon/docker-compose.yaml down --remove-orphans
