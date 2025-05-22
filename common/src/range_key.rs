@@ -42,6 +42,18 @@ pub fn range_index_by_key(global_key: TransactionID) -> KeyRange {
     KeyRange(global_key.0 / SINGLE_BLOB_SIZE)
 }
 
+/// Converts full id (TransactionID) into range and offset.
+/// ```
+/// use common::range_key::key_from_range_and_offset;
+/// use common::range_key::TransactionID;
+/// use common::range_key::range_offset_from_key;
+///
+/// let id = TransactionID(10);
+/// let (range, offset) = range_offset_from_key(id);
+/// let id_from = key_from_range_and_offset(range, offset);
+/// assert_eq!(id, id_from);
+///
+/// ```
 pub fn range_offset_from_key(global_key: TransactionID) -> (KeyRange, KeyOffset) {
     let range = range_index_by_key(global_key);
     let offset = global_key.0 % SINGLE_BLOB_SIZE;
