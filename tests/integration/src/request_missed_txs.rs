@@ -4,9 +4,10 @@ use std::{collections::HashMap, num::NonZeroUsize, thread::sleep, time::Duration
 
 use common::{
     async_interface::ReqResPair,
-    gm_request_response::{Request, Transaction, TxStatus},
+    gm_request_response::Request,
     meta_exchange::Response,
     range_key::{KeyOffset, KeyRange, TransactionID},
+    transaction::{Transaction, TxStatus},
 };
 use gateway::core::Gateway;
 use maroon::{
