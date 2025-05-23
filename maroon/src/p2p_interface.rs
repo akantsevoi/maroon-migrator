@@ -1,6 +1,6 @@
 use common::{
     gm_request_response::Transaction,
-    range_key::{KeyOffset, KeyRange},
+    range_key::{KeyOffset, KeyRange, TransactionID},
 };
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
@@ -23,6 +23,7 @@ pub enum Inbox {
     State((PeerId, NodeState)),
     Nodes(HashSet<PeerId>),
     NewTransaction(Transaction),
+    MissingTx(Vec<Transaction>),
 }
 
 // Node state
