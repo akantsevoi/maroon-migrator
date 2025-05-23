@@ -5,6 +5,10 @@ use common::{
         self, Behaviour as GMBehaviour, Event as GMEvent, Request as GMRequest,
         Response as GMResponse,
     },
+    m2m_request_response::{
+        self, Behaviour as M2MBehaviour, Event as M2MEvent, Request as M2MRequest,
+        Response as M2MResponse,
+    },
     meta_exchange::{
         self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Request as MERequest,
         Response as MEResponse, Role,
@@ -41,6 +45,7 @@ struct MaroonBehaviour {
     gossipsub: GossipsubBehaviour,
     request_response: GMBehaviour,
     meta_exchange: MetaExchangeBehaviour,
+    m2m_req_res: M2MBehaviour,
 }
 
 #[derive(From)]
@@ -49,6 +54,7 @@ pub enum MaroonEvent {
     Gossipsub(GossipsubEvent),
     RequestResponse(GMEvent),
     MetaExchange(MEEvent),
+    M2MReqRes(M2MEvent),
 }
 
 pub struct P2P {
@@ -105,6 +111,7 @@ impl P2P {
             gossipsub,
             request_response: gm_request_response::create_behaviour(ProtocolSupport::Inbound),
             meta_exchange: meta_exchange::create_behaviour(),
+            m2m_req_res: m2m_request_response::create_behaviour(),
         };
 
         let swarm = Swarm::new(
@@ -250,6 +257,9 @@ fn handle_swarm_event(
         SwarmEvent::Behaviour(MaroonEvent::RequestResponse(gm_request_response)) => {
             handle_request_response(swarm, &sender, gm_request_response);
         }
+        SwarmEvent::Behaviour(MaroonEvent::M2MReqRes(m2m_request_response)) => {
+            handle_m2m_req_res(swarm, &sender, m2m_request_response);
+        }
         SwarmEvent::ConnectionEstablished { peer_id, .. } => {
             swarm
                 .behaviour_mut()
@@ -270,6 +280,30 @@ fn handle_swarm_event(
             debug!("OutgoingConnectionError: {peer_id:?} {connection_id} {error}");
         }
         _ => {}
+    }
+}
+
+fn handle_m2m_req_res(
+    swarm: &mut Swarm<MaroonBehaviour>,
+    tx_in: &UnboundedSender<Inbox>,
+    m2m_request_response: M2MEvent,
+) {
+    let M2MEvent::Message { message, peer, .. } = m2m_request_response else {
+        return;
+    };
+
+    match message {
+        RequestResponseMessage::Request {
+            request_id,
+            request,
+            channel,
+        } => {
+            // TODO: ask app to provide
+        }
+        RequestResponseMessage::Response {
+            request_id,
+            response,
+        } => {}
     }
 }
 
