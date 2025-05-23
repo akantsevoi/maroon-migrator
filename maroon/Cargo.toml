@@ -7,6 +7,7 @@ version = "0.1.0"
 [dependencies]
 chrono = "0.4.41"
 common = { path = "../common" }
+derive_more = { version = "2.0.1", features = ["from", "display"] }
 env_logger = { workspace = true }
 etcd-client = "0.14.1"
 futures = { workspace = true }
@@ -17,4 +18,3 @@ rand = "0.9.1"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-derive_more = { version = "2.0.1", features = ["from"] }

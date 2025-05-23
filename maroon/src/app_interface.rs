@@ -1,6 +1,8 @@
 use common::range_key::{KeyOffset, KeyRange};
+use derive_more::Display;
 use std::collections::HashMap;
 
+#[derive(Display)]
 pub enum Request {
     GetState,
 }
