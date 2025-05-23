@@ -1,7 +1,10 @@
 use crate::p2p_interface::{self, NodeState};
 use common::{
     async_interface::{AsyncInterface, ReqResPair},
-    gm_request_response::{self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response},
+    gm_request_response::{
+        self, Behaviour as GMBehaviour, Event as GMEvent, Request as GMRequest,
+        Response as GMResponse,
+    },
     meta_exchange::{
         self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Request as MERequest,
         Response as MEResponse, Role,
@@ -285,13 +288,13 @@ fn handle_request_response(
                 debug!("Request: {:?}, {:?}", request_id, request);
 
                 match request {
-                    Request::NewTransaction(tx) => {
+                    GMRequest::NewTransaction(tx) => {
                         _ = tx_in.send(Inbox::NewTransaction(tx));
 
                         let res = swarm
                             .behaviour_mut()
                             .request_response
-                            .send_response(channel, Response::Acknowledged);
+                            .send_response(channel, GMResponse::Acknowledged);
                         debug!("Response sent: {:?}", res);
                     }
                 }
