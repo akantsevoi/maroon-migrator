@@ -1,6 +1,7 @@
 use common::{
-    gm_request_response::{Request, Transaction, TxStatus},
+    gm_request_response::Request,
     range_key::TransactionID,
+    transaction::{Transaction, TxStatus},
 };
 use std::time::Duration;
 

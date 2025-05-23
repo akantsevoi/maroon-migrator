@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-
 use crate::app::App;
 use crate::p2p_interface::{Inbox, Outbox};
-use common::async_interface::ReqResPair;
-use common::gm_request_response::{Transaction, TxStatus};
-use common::range_key::{self, KeyRange, TransactionID};
+use common::{
+    async_interface::ReqResPair,
+    range_key::TransactionID,
+    transaction::{Transaction, TxStatus},
+};
 use libp2p::PeerId;
 
 #[cfg(test)]

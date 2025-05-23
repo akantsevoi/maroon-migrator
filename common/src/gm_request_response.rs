@@ -1,4 +1,4 @@
-use crate::range_key::TransactionID;
+use crate::transaction::Transaction;
 use libp2p::swarm::StreamProtocol;
 use libp2p_request_response::{
     self as request_response, Event as RequestResponseEvent, ProtocolSupport,
@@ -26,21 +26,5 @@ pub enum Request {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Response {
     Acknowledged,
-    Rejected,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct Transaction {
-    pub id: TransactionID,
-    pub status: TxStatus,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(tag = "type", content = "data")]
-pub enum TxStatus {
-    Created,
-    Pending,
-    Confirmed,
-    Finished,
     Rejected,
 }

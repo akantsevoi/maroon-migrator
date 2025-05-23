@@ -1,6 +1,6 @@
 use common::{
-    gm_request_response::Transaction,
-    range_key::{KeyOffset, KeyRange, TransactionID},
+    range_key::{KeyOffset, KeyRange},
+    transaction::Transaction,
 };
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};

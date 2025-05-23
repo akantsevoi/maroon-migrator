@@ -2,11 +2,11 @@ use crate::app_interface::{CurrentOffsets, Request, Response};
 use crate::p2p_interface::{Inbox, NodeState, Outbox};
 use common::{
     async_interface::{AsyncInterface, ReqResPair},
-    gm_request_response::Transaction,
     range_key::{self, KeyOffset, KeyRange, TransactionID},
+    transaction::Transaction,
 };
 use libp2p::PeerId;
-use log::{debug, error, info};
+use log::{error, info};
 use std::vec;
 use std::{
     collections::{HashMap, HashSet},
@@ -307,7 +307,7 @@ mod tests {
     use crate::test_helpers::test_tx;
 
     use super::*;
-    use common::gm_request_response::{Transaction, TxStatus};
+    use common::transaction::{Transaction, TxStatus};
     use tokio::{sync::mpsc, time};
 
     #[tokio::test(flavor = "multi_thread")]
