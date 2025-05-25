@@ -108,12 +108,12 @@ impl<Res> std::future::Future for ResultFuture<Res> {
     type Output = Res;
 
     fn poll(
-        self: std::pin::Pin<&mut Self>,
+        mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
-        let proj = unsafe { self.map_unchecked_mut(|s| &mut s.receiver) };
+        let oneshot_pin = std::pin::Pin::new(&mut self.receiver);
 
-        match proj.poll(cx) {
+        match oneshot_pin.poll(cx) {
             std::task::Poll::Ready(Ok(res)) => std::task::Poll::Ready(res),
             std::task::Poll::Ready(Err(_canceled)) => panic!("sender was dropped unexpectedly"),
             std::task::Poll::Pending => std::task::Poll::Pending,
