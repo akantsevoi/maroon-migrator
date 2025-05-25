@@ -1,12 +1,9 @@
 use std::time::Duration;
-
-use libp2p::futures::channel::mpsc::Sender;
-use log::debug;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::sync::oneshot;
 
 /// Start of library code
-struct AsyncInterface<Req, Res> {
+pub struct AsyncInterface<Req, Res> {
     tx_request: Option<UnboundedSender<RequestWrapper<Req, Res>>>,
     rx_request: Option<UnboundedReceiver<RequestWrapper<Req, Res>>>,
     tx_response: Option<UnboundedSender<Res>>,
@@ -14,7 +11,7 @@ struct AsyncInterface<Req, Res> {
 }
 
 impl<Req, Res> AsyncInterface<Req, Res> {
-    fn new() -> AsyncInterface<Req, Res> {
+    pub fn new() -> AsyncInterface<Req, Res> {
         let (tx_request, rx_request) = mpsc::unbounded_channel::<RequestWrapper<Req, Res>>();
         let (tx_response, rx_response) = mpsc::unbounded_channel::<Res>();
 
@@ -26,7 +23,7 @@ impl<Req, Res> AsyncInterface<Req, Res> {
         }
     }
 
-    fn extract_sender_interface(&mut self) -> SenderInterface<Req, Res> {
+    pub fn extract_sender_interface(&mut self) -> SenderInterface<Req, Res> {
         SenderInterface {
             sender: self
                 .tx_request
@@ -39,7 +36,7 @@ impl<Req, Res> AsyncInterface<Req, Res> {
         }
     }
 
-    fn extract_receiver_interface(&mut self) -> ReceiverInterface<Req, Res> {
+    pub fn extract_receiver_interface(&mut self) -> ReceiverInterface<Req, Res> {
         ReceiverInterface {
             sender: self
                 .tx_response
@@ -54,13 +51,13 @@ impl<Req, Res> AsyncInterface<Req, Res> {
 }
 
 #[derive(Debug)]
-struct SenderInterface<Req, Res> {
+pub struct SenderInterface<Req, Res> {
     pub sender: UnboundedSender<RequestWrapper<Req, Res>>,
     pub receiver: UnboundedReceiver<Res>,
 }
 
 impl<Req, Res> SenderInterface<Req, Res> {
-    async fn request(&self, req: Req) -> Res {
+    pub async fn request(&self, req: Req) -> Res {
         let (sender, receiver) = oneshot::channel::<Res>();
 
         _ = self.sender.send(RequestWrapper {
@@ -71,8 +68,8 @@ impl<Req, Res> SenderInterface<Req, Res> {
         receiver.await.unwrap()
     }
 
-    fn result_awaiter<'a>(
-        &'a self,
+    pub fn result_awaiter(
+        &self,
         req: Req,
     ) -> impl std::future::Future<Output = Res> + use<Req, Res> {
         let (sender, receiver) = oneshot::channel::<Res>();
@@ -84,14 +81,50 @@ impl<Req, Res> SenderInterface<Req, Res> {
 
         return async { receiver.await.unwrap() };
     }
+
+    pub fn result_awaiter_2(&self, req: Req) -> ResultFuture<Res> {
+        let (sender, receiver) = oneshot::channel::<Res>();
+
+        _ = self.sender.send(RequestWrapper {
+            request: req,
+            response: sender,
+        });
+
+        return ResultFuture { receiver: receiver };
+    }
 }
 
-struct ReceiverInterface<Req, Res> {
+pub struct ResultFuture<Res> {
+    receiver: oneshot::Receiver<Res>,
+}
+
+impl<Res> ResultFuture<Res> {
+    fn new(receiver: oneshot::Receiver<Res>) -> Self {
+        ResultFuture { receiver }
+    }
+}
+
+impl<Res> std::future::Future for ResultFuture<Res> {
+    type Output = Res;
+
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        let proj = unsafe { self.map_unchecked_mut(|s| &mut s.receiver) };
+
+        match proj.poll(cx) {
+            std::task::Poll::Ready(Ok(res)) => std::task::Poll::Ready(res),
+            std::task::Poll::Ready(Err(_canceled)) => panic!("sender was dropped unexpectedly"),
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    }
+}
+
+pub struct ReceiverInterface<Req, Res> {
     pub sender: UnboundedSender<Res>,
     pub receiver: UnboundedReceiver<RequestWrapper<Req, Res>>,
 }
-
-struct Interface {}
 
 struct RequestWrapper<Req, Res> {
     request: Req,
@@ -139,10 +172,10 @@ async fn experiments() {
         }
     });
 
-    let responder1 = sender.result_awaiter(TestRequest {
+    let responder1 = sender.result_awaiter_2(TestRequest {
         id: "1".to_string(),
     });
-    let responder2 = sender.result_awaiter(TestRequest {
+    let responder2 = sender.result_awaiter_2(TestRequest {
         id: "2".to_string(),
     });
 
