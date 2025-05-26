@@ -84,14 +84,8 @@ impl App {
                 _ = ticker.tick() => {
                     self.handle_on_tick();
                 },
-                msg = self.state_interface.receiver.recv() => {
-                    match msg {
-                        Option::Some(request) => {
-                            self.handle_request(request);
-                        },
-                        None => {},
-                    }
-
+                Option::Some(req_wrapper) = self.state_interface.receiver.recv() => {
+                    self.handle_request(req_wrapper);
                 },
                 Some(payload) = self.p2p_interface.receiver.recv() => {
                     self.handle_inbox_message(payload);
@@ -149,6 +143,32 @@ impl App {
                 ) {
                     move_offset_pointer(&mut self.offsets, self.peer_id, new_range, new_offset);
                 }
+            }
+            Inbox::RequestMissingTxs((peer_id, ranges)) => {
+                let mut capacity: usize = 0;
+                for (left, right) in &ranges {
+                    let lu = left.0 as usize;
+                    let ru = right.0 as usize;
+                    capacity += ru - lu;
+                }
+
+                let mut response: Vec<Transaction> = Vec::with_capacity(capacity);
+
+                for (left, right) in ranges {
+                    let mut pointer = left;
+                    while pointer <= right {
+                        let Some(tx) = self.transactions.get(&pointer) else {
+                            continue;
+                        };
+                        response.push(tx.clone());
+                        pointer += TransactionID(1);
+                    }
+                }
+
+                self.p2p_interface
+                    .sender
+                    .send(Outbox::RequestedTxsForPeer((peer_id, response)))
+                    .expect("TODO: shouldnt drop sender");
             }
         }
     }

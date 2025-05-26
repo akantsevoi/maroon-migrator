@@ -29,9 +29,12 @@ pub enum Request {
     /// TODO: there should be limit. If delay is too big - node should get them from s3
     /// this one is only for small batch of txs
     GetMissingTx(Vec<(TransactionID, TransactionID)>),
+
+    /// sends missing transactions
+    MissingTx(Vec<Transaction>),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Response {
-    MissingTx(Vec<Transaction>),
+    Ack,
 }
