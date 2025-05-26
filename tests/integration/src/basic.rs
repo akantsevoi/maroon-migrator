@@ -5,6 +5,7 @@ use std::{collections::HashMap, num::NonZeroUsize, thread::sleep, time::Duration
 use common::{
     async_interface::ReqResPair,
     gm_request_response::Request,
+    invoker_handler::InvokerInterface,
     meta_exchange::Response,
     range_key::{KeyOffset, KeyRange, TransactionID},
     transaction::{Transaction, TxStatus},
@@ -32,7 +33,7 @@ async fn basic() {
 
     // create nodes and gateway
 
-    let mut node0 = stack::create_stack(
+    let (mut node0, state_invoker_0) = stack::create_stack(
         vec![
             "/ip4/127.0.0.1/tcp/3001".to_string(),
             "/ip4/127.0.0.1/tcp/3002".to_string(),
@@ -41,7 +42,7 @@ async fn basic() {
         params.clone(),
     )
     .unwrap();
-    let mut node1 = stack::create_stack(
+    let (mut node1, state_invoker_1) = stack::create_stack(
         vec![
             "/dns4/localhost/tcp/3000".to_string(),
             "/dns4/localhost/tcp/3002".to_string(),
@@ -50,7 +51,7 @@ async fn basic() {
         params.clone(),
     )
     .unwrap();
-    let mut node2 = stack::create_stack(
+    let (mut node2, state_invoker_2) = stack::create_stack(
         vec![
             "/ip4/127.0.0.1/tcp/3000".to_string(),
             "/ip4/127.0.0.1/tcp/3001".to_string(),
@@ -66,10 +67,6 @@ async fn basic() {
         "/ip4/127.0.0.1/tcp/3002".to_string(),
     ])
     .unwrap();
-
-    let mut state_check_0 = node0.get_state_interface();
-    let mut state_check_1 = node1.get_state_interface();
-    let mut state_check_2 = node2.get_state_interface();
 
     // run nodes and gateway
 
@@ -99,11 +96,10 @@ async fn basic() {
     // check results
     let (mut node0_correct, mut node1_correct, mut node2_correct) = (false, false, false);
 
-    let get_state_and_compare = async |interface: &mut ReqResPair<AppRequest, AppResponse>,
+    let get_state_and_compare = async |interface: &InvokerInterface<AppRequest, AppResponse>,
                                        offsets: &CurrentOffsets|
            -> bool {
-        interface.sender.send(AppRequest::GetState).unwrap();
-        let app_state_response = interface.receiver.recv().await.unwrap();
+        let app_state_response = interface.request(AppRequest::GetState).await;
         println!("got app: {app_state_response:?}");
 
         let AppResponse::State(app_state) = app_state_response;
@@ -115,9 +111,9 @@ async fn basic() {
     };
 
     for _ in 0..3 {
-        node0_correct = get_state_and_compare(&mut state_check_0, &desired_state).await;
-        node1_correct = get_state_and_compare(&mut state_check_1, &desired_state).await;
-        node2_correct = get_state_and_compare(&mut state_check_2, &desired_state).await;
+        node0_correct = get_state_and_compare(&state_invoker_0, &desired_state).await;
+        node1_correct = get_state_and_compare(&state_invoker_1, &desired_state).await;
+        node2_correct = get_state_and_compare(&state_invoker_2, &desired_state).await;
         if node0_correct && node1_correct && node2_correct {
             break;
         }

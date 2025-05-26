@@ -1,7 +1,8 @@
 use crate::app_interface::{CurrentOffsets, Request, Response};
 use crate::p2p_interface::{Inbox, NodeState, Outbox};
+use common::invoker_handler::{HandlerInterface, RequestWrapper};
 use common::{
-    async_interface::{AsyncInterface, ReqResPair},
+    async_interface::ReqResPair,
     range_key::{self, KeyOffset, KeyRange, TransactionID},
     transaction::Transaction,
 };
@@ -39,7 +40,7 @@ pub struct App {
 
     peer_id: PeerId,
     p2p_interface: ReqResPair<Outbox, Inbox>,
-    state_interface: AsyncInterface<Request, Response>,
+    state_interface: HandlerInterface<Request, Response>,
 
     /// offsets for the current node
     self_offsets: HashMap<KeyRange, KeyOffset>,
@@ -60,13 +61,14 @@ impl App {
     pub fn new(
         peer_id: PeerId,
         p2p_interface: ReqResPair<Outbox, Inbox>,
+        state_interface: HandlerInterface<Request, Response>,
         params: Params,
     ) -> Result<App, Box<dyn std::error::Error>> {
         Ok(App {
             params,
             peer_id,
             p2p_interface,
-            state_interface: AsyncInterface::new(),
+            state_interface,
             offsets: HashMap::new(),
             self_offsets: HashMap::new(),
             consensus_offset: HashMap::new(),
@@ -74,24 +76,18 @@ impl App {
         })
     }
 
-    /// can be called only once because we're moving ownership of receiver channels
-    pub fn get_state_interface(&mut self) -> ReqResPair<Request, Response> {
-        self.state_interface.requester()
-    }
-
     /// starts a loop that processes events and executes logic
     pub async fn loop_until_shutdown(&mut self, mut shutdown: oneshot::Receiver<()>) {
         let mut ticker = tokio::time::interval(self.params.advertise_period);
-        let mut p = self.state_interface.responder();
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
                     self.handle_on_tick();
                 },
-                msg = p.receiver.recv() => {
+                msg = self.state_interface.receiver.recv() => {
                     match msg {
                         Option::Some(request) => {
-                            self.handle_request(request, &p.sender);
+                            self.handle_request(request);
                         },
                         None => {},
                     }
@@ -166,14 +162,16 @@ impl App {
         };
     }
 
-    fn handle_request(&self, request: Request, sender: &UnboundedSender<Response>) {
-        match request {
+    fn handle_request(&self, wrapper: RequestWrapper<Request, Response>) {
+        match wrapper.request {
             Request::GetState => {
-                if let Err(e) = sender.send(Response::State(CurrentOffsets {
-                    self_offsets: self.self_offsets.clone(),
-                    consensus_offset: self.consensus_offset.clone(),
-                })) {
-                    error!("state_interface: {e}");
+                if let Err(unsent_response) =
+                    wrapper.response.send(Response::State(CurrentOffsets {
+                        self_offsets: self.self_offsets.clone(),
+                        consensus_offset: self.consensus_offset.clone(),
+                    }))
+                {
+                    error!("couldnt send response: {unsent_response}");
                 }
             }
         }
@@ -307,7 +305,10 @@ mod tests {
     use crate::test_helpers::test_tx;
 
     use super::*;
-    use common::transaction::{Transaction, TxStatus};
+    use common::{
+        invoker_handler::create_invoker_handler_pair,
+        transaction::{Transaction, TxStatus},
+    };
     use tokio::{sync::mpsc, time};
 
     #[tokio::test(flavor = "multi_thread")]
@@ -318,11 +319,15 @@ mod tests {
 
         let n1_peer_id = PeerId::random();
         let n2_peer_id = PeerId::random();
+        let (_, handler) = create_invoker_handler_pair();
 
-        let mut app = crate::test_helpers::new_test_instance(ReqResPair {
-            receiver: rx_in,
-            sender: tx_out,
-        });
+        let mut app = crate::test_helpers::new_test_instance(
+            ReqResPair {
+                receiver: rx_in,
+                sender: tx_out,
+            },
+            handler,
+        );
 
         let handle = tokio::spawn(async move {
             app.loop_until_shutdown(shutdown_rx).await;
