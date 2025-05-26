@@ -3,7 +3,7 @@ use crate::p2p_interface::{Inbox, NodeState, Outbox};
 use common::invoker_handler::{HandlerInterface, RequestWrapper};
 use common::{
     async_interface::ReqResPair,
-    range_key::{self, KeyOffset, KeyRange, TransactionID},
+    range_key::{self, KeyOffset, KeyRange, TransactionID, key_from_range_and_offset},
     transaction::Transaction,
 };
 use libp2p::PeerId;
@@ -269,6 +269,66 @@ fn update_self_offsets(
     }
 
     updates
+}
+
+fn self_delays(
+    transactions: HashMap<TransactionID, Transaction>,
+    self_offsets: HashMap<KeyRange, KeyOffset>,
+    offsets: HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
+) -> HashMap<PeerId, Vec<(TransactionID, TransactionID)>> {
+    let mut result = HashMap::<PeerId, Vec<(TransactionID, TransactionID)>>::new();
+
+    for (range, nodes) in offsets {
+        let Some((peer_id, offset)) = nodes
+            .iter()
+            .max_by_key(|(_peer, v)| **v)
+            .map(|(peer, &offset)| (peer.clone(), offset))
+        else {
+            continue;
+        };
+
+        let right_border = offset.clone();
+        let mut left_border = KeyOffset(0);
+        if let Some(current) = self_offsets.get(&range) {
+            if *current >= right_border {
+                continue;
+            } else {
+                left_border = *current + KeyOffset(1);
+            }
+        };
+
+        let mut new_tx_ranges = Vec::<(TransactionID, TransactionID)>::new();
+
+        let mut pointer = left_border;
+        while pointer <= right_border {
+            if transactions.contains_key(&key_from_range_and_offset(range, pointer)) {
+                if left_border < pointer {
+                    new_tx_ranges.push((
+                        key_from_range_and_offset(range, left_border),
+                        key_from_range_and_offset(range, pointer - KeyOffset(1)),
+                    ));
+                }
+                pointer += KeyOffset(1);
+                left_border = pointer;
+            } else {
+                pointer += KeyOffset(1);
+            }
+        }
+        if pointer != left_border {
+            new_tx_ranges.push((
+                key_from_range_and_offset(range, left_border),
+                key_from_range_and_offset(range, pointer - KeyOffset(1)),
+            ));
+        }
+
+        if let Some(ranges) = result.get_mut(&peer_id) {
+            ranges.append(&mut new_tx_ranges);
+        } else {
+            result.insert(peer_id.clone(), new_tx_ranges);
+        }
+    }
+
+    result
 }
 
 /// returns maximum offset among peers keeping in mind the `n_consensus`
@@ -692,6 +752,100 @@ mod tests {
                 "{}",
                 case.label,
             );
+        }
+    }
+
+    #[test]
+    fn test_self_delays_calculation() {
+        struct Case<'a> {
+            label: &'a str,
+            self_offsets: HashMap<KeyRange, KeyOffset>,
+            transactions: HashMap<TransactionID, Transaction>,
+            offsets: HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
+            expected_ranges: HashMap<PeerId, Vec<(TransactionID, TransactionID)>>,
+        }
+
+        let peer_id_0 = PeerId::random();
+        let peer_id_1 = PeerId::random();
+
+        for case in vec![
+            Case {
+                label: "empty everything",
+                self_offsets: HashMap::new(),
+                transactions: HashMap::new(),
+                offsets: HashMap::new(),
+                expected_ranges: HashMap::new(),
+            },
+            Case {
+                label: "self in front",
+                self_offsets: HashMap::from([
+                    (KeyRange(0), KeyOffset(5)),
+                    (KeyRange(2), KeyOffset(3)),
+                ]),
+                transactions: HashMap::new(),
+                offsets: HashMap::from([
+                    (
+                        KeyRange(0),
+                        HashMap::from([(peer_id_0, KeyOffset(5)), (peer_id_1, KeyOffset(2))]),
+                    ),
+                    (
+                        KeyRange(2),
+                        HashMap::from([(peer_id_0, KeyOffset(1)), (peer_id_1, KeyOffset(2))]),
+                    ),
+                ]),
+                expected_ranges: HashMap::new(),
+            },
+            Case {
+                label: "self behind few and few gaps in txs",
+                self_offsets: HashMap::from([
+                    (KeyRange(0), KeyOffset(1)),
+                    (KeyRange(2), KeyOffset(1)),
+                ]),
+                transactions: HashMap::from([
+                    (TransactionID(5), test_tx(5)),
+                    (TransactionID(6), test_tx(6)),
+                ]),
+                offsets: HashMap::from([
+                    (
+                        KeyRange(0),
+                        HashMap::from([(peer_id_0, KeyOffset(8)), (peer_id_1, KeyOffset(2))]),
+                    ),
+                    (
+                        KeyRange(2),
+                        HashMap::from([(peer_id_0, KeyOffset(3)), (peer_id_1, KeyOffset(1))]),
+                    ),
+                    (
+                        KeyRange(3),
+                        HashMap::from([(peer_id_0, KeyOffset(1)), (peer_id_1, KeyOffset(3))]),
+                    ),
+                ]),
+                expected_ranges: HashMap::from([
+                    (
+                        peer_id_0,
+                        vec![
+                            (TransactionID(2), TransactionID(4)),
+                            (TransactionID(7), TransactionID(8)),
+                            (
+                                key_from_range_and_offset(KeyRange(2), KeyOffset(2)),
+                                key_from_range_and_offset(KeyRange(2), KeyOffset(3)),
+                            ),
+                        ],
+                    ),
+                    (
+                        peer_id_1,
+                        vec![(
+                            key_from_range_and_offset(KeyRange(3), KeyOffset(0)),
+                            key_from_range_and_offset(KeyRange(3), KeyOffset(3)),
+                        )],
+                    ),
+                ]),
+            },
+        ] {
+            let mut ranges = self_delays(case.transactions, case.self_offsets, case.offsets);
+            for (_, v) in ranges.iter_mut() {
+                v.sort_by_key(|pair| pair.0);
+            }
+            assert_eq!(case.expected_ranges, ranges, "{}", case.label);
         }
     }
 }

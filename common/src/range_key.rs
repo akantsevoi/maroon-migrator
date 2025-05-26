@@ -9,7 +9,20 @@ use serde::{Deserialize, Serialize};
 pub struct KeyRange(pub u64);
 
 #[derive(
-    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Add, Display,
+    Serialize,
+    Deserialize,
+    AddAssign,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Add,
+    Display,
+    Sub,
 )]
 pub struct KeyOffset(pub u64);
 
