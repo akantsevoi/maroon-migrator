@@ -26,10 +26,19 @@ First part of the plan is to get the reliable engine that will get requests from
     - [X] MN. calculate delay for each node
 - [X] MN. regularly exchange current vector state to all MNs
 - [X] G. Minimal gateway implementation that just publishes transactions
-- [ ] MN. Request outdated transactions(p2p)
+- [ ] MN. Request outdated transactions(p2p) (in prog...)
+- [ ] MN. Fix "epoch" (local)
+- [ ] MN. integration - "puf-puf-magic"
+
+
+
+
+
+
+- [ ] MN. leader regularly publishes commited "epoch" updates to etcd
 - [ ] G/MN. Add API to request key ranges for G
     - [ ] MN. store used ranges on etcd
-- [ ] MN. leader regularly publishes vector commited updates to S3 + etcd
+- [ ] dump data to s3?? (??: what exactly we need to persist? Format? Easy to bootstrap later??)
 - [ ] write script that finds leader, pauses the container and then restores it after a new leader elected
 - [ ] G. make it working as a server/sidecar/library
 - [ ] MN. Bootstratp node from s3
