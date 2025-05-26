@@ -18,28 +18,6 @@ pub struct InvokerInterface<Req, Res> {
 }
 
 impl<Req, Res> InvokerInterface<Req, Res> {
-    // pub async fn request(&self, req: Req) -> Res {
-    //     let (sender, receiver) = oneshot::channel::<Res>();
-
-    //     _ = self.sender.send(RequestWrapper {
-    //         request: req,
-    //         response: sender,
-    //     });
-
-    //     receiver.await.unwrap()
-    // }
-
-    // pub fn request(&self, req: Req) -> impl std::future::Future<Output = Res> + use<Req, Res> {
-    //     let (sender, receiver) = oneshot::channel::<Res>();
-
-    //     _ = self.sender.send(RequestWrapper {
-    //         request: req,
-    //         response: sender,
-    //     });
-
-    //     return async { receiver.await.unwrap() };
-    // }
-
     pub fn request(&self, req: Req) -> ResultFuture<Res> {
         let (sender, receiver) = oneshot::channel::<Res>();
 
@@ -66,7 +44,11 @@ impl<Res> Future for ResultFuture<Res> {
 
         match oneshot_pin.poll(cx) {
             Poll::Ready(Ok(res)) => Poll::Ready(res),
-            Poll::Ready(Err(_canceled)) => todo!("sender was dropped unexpectedly"),
+            Poll::Ready(Err(_canceled)) => todo!(
+                "sender was dropped unexpectedly. 
+                That should not happen for the usecase this construction was created. 
+                If you dropped sender channel - you did smth wrong"
+            ),
             Poll::Pending => Poll::Pending,
         }
     }
