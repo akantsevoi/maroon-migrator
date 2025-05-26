@@ -538,8 +538,10 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "derive_more",
+ "env_logger",
  "libp2p",
  "libp2p-request-response",
+ "log",
  "serde",
  "tokio",
 ]
