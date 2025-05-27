@@ -405,70 +405,7 @@ mod tests {
     use crate::test_helpers::test_tx;
 
     use super::*;
-    use common::{
-        invoker_handler::create_invoker_handler_pair,
-        transaction::{Transaction, TxStatus},
-    };
-    use tokio::{sync::mpsc, time};
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn app_process_message_and_shuts_down() {
-        let (tx_in, rx_in) = mpsc::unbounded_channel::<Inbox>();
-        let (tx_out, _rx_out) = mpsc::unbounded_channel::<Outbox>();
-        let (shutdown_tx, shutdown_rx) = oneshot::channel();
-
-        let n1_peer_id = PeerId::random();
-        let n2_peer_id = PeerId::random();
-        let (_, handler) = create_invoker_handler_pair();
-
-        let mut app = crate::test_helpers::new_test_instance(
-            ReqResPair {
-                receiver: rx_in,
-                sender: tx_out,
-            },
-            handler,
-        );
-
-        let handle = tokio::spawn(async move {
-            app.loop_until_shutdown(shutdown_rx).await;
-            app.consensus_offset
-        });
-
-        _ = tx_in
-            .send(Inbox::State((
-                n1_peer_id,
-                NodeState {
-                    offsets: HashMap::from([
-                        (KeyRange(1), KeyOffset(3)),
-                        (KeyRange(2), KeyOffset(7)),
-                        (KeyRange(4), KeyOffset(1)),
-                    ]),
-                },
-            )))
-            .expect("no errors");
-        _ = tx_in
-            .send(Inbox::State((
-                n2_peer_id,
-                NodeState {
-                    offsets: HashMap::from([
-                        (KeyRange(1), KeyOffset(2)),
-                        (KeyRange(2), KeyOffset(9)),
-                    ]),
-                },
-            )))
-            .expect("no errors");
-
-        // wait until app consumes the event
-        time::sleep(Duration::from_millis(10)).await;
-        shutdown_tx.send(()).expect("no error on shutdown");
-
-        let calculated_offset = handle.await.expect("should get proper map");
-
-        assert_eq!(
-            calculated_offset,
-            HashMap::from([(KeyRange(1), KeyOffset(2)), (KeyRange(2), KeyOffset(7))])
-        )
-    }
+    use common::transaction::{Transaction, TxStatus};
 
     #[test]
     fn calculate_consensus_maximum() {

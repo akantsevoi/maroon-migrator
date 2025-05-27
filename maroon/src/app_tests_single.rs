@@ -10,6 +10,67 @@ use common::range_key::{KeyOffset, KeyRange, TransactionID};
 use libp2p::PeerId;
 use tokio::sync::oneshot;
 
+///
+/// In this file we're testing app as a black box by accessing only publicly available interface module
+/// not really integration tests, but not unit either
+///
+
+#[tokio::test(flavor = "multi_thread")]
+async fn app_calculates_consensus_offset() {
+    let mut interface = AsyncInterface::new();
+    let (state_invoker, handler) = create_invoker_handler_pair();
+    let mut app = new_test_instance(interface.responder(), handler);
+    let (_shutdown_tx, shutdown_rx) = oneshot::channel();
+
+    let n1_peer_id = PeerId::random();
+    let n2_peer_id = PeerId::random();
+
+    tokio::spawn(async move {
+        app.loop_until_shutdown(shutdown_rx).await;
+    });
+
+    let requester = interface.requester();
+
+    requester
+        .sender
+        .send(Inbox::State((
+            n1_peer_id,
+            NodeState {
+                offsets: HashMap::from([
+                    (KeyRange(1), KeyOffset(3)),
+                    (KeyRange(2), KeyOffset(7)),
+                    (KeyRange(4), KeyOffset(1)),
+                ]),
+            },
+        )))
+        .unwrap();
+    requester
+        .sender
+        .send(Inbox::State((
+            n2_peer_id,
+            NodeState {
+                offsets: HashMap::from([(KeyRange(1), KeyOffset(2)), (KeyRange(2), KeyOffset(9))]),
+            },
+        )))
+        .unwrap();
+
+    assert!(
+        reaches_state(
+            3,
+            Duration::from_millis(5),
+            &state_invoker,
+            CurrentOffsets {
+                self_offsets: HashMap::new(),
+                consensus_offset: HashMap::from([
+                    (KeyRange(1), KeyOffset(2)),
+                    (KeyRange(2), KeyOffset(7))
+                ]),
+            }
+        )
+        .await
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn app_gets_missing_transaction() {
     let mut interface = AsyncInterface::new();
@@ -64,7 +125,7 @@ async fn app_gets_missing_transaction() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn request_transactions_from_app() {
+async fn app_gets_missing_transactions_that_smbd_else_requested() {
     let mut interface = AsyncInterface::new();
     let (state_invoker, handler) = create_invoker_handler_pair();
     let mut app = new_test_instance(interface.responder(), handler);
