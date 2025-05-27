@@ -39,8 +39,6 @@ pub enum GatewayEvent {
 }
 
 pub struct P2P {
-    pub peer_id: PeerId,
-
     node_urls: Vec<String>,
 
     swarm: Swarm<GatewayBehaviour>,
@@ -82,7 +80,6 @@ impl P2P {
 
         Ok(P2P {
             node_urls,
-            peer_id,
             swarm,
             channels: AsyncInterface::new(),
         })
@@ -185,9 +182,9 @@ fn handle_swarm_event(
                 _ => {}
             }
         }
-        // SwarmEvent::Behaviour(GatewayEvent::Ping(PingEvent { .. })) =>{
-        //     // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
-        // },
+        SwarmEvent::Behaviour(GatewayEvent::Ping(PingEvent { .. })) => {
+            // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
+        }
         SwarmEvent::ConnectionEstablished { peer_id, .. } => {
             maroon_peer_ids.insert(peer_id);
             debug!("connected to {}", peer_id);

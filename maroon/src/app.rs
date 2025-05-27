@@ -14,7 +14,6 @@ use std::{
     num::NonZeroUsize,
     time::Duration,
 };
-use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
 #[derive(Clone, Copy, Debug)]
@@ -400,8 +399,6 @@ pub fn txs_to_range_tx_map(txs: Vec<Transaction>) -> HashMap<KeyRange, Vec<Trans
 
 #[cfg(test)]
 mod tests {
-    use std::hash::Hash;
-
     use crate::test_helpers::test_tx;
 
     use super::*;
