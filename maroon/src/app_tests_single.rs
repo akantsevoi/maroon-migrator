@@ -4,7 +4,7 @@ use std::time::Duration;
 use crate::app_interface::CurrentOffsets;
 use crate::p2p_interface::*;
 use crate::test_helpers::{new_test_instance, reaches_state, test_tx};
-use common::async_interface::AsyncInterface;
+use common::duplex_channel::create_a_b_duplex_pair;
 use common::invoker_handler::create_invoker_handler_pair;
 use common::range_key::{KeyOffset, KeyRange, TransactionID};
 use libp2p::PeerId;
@@ -17,9 +17,9 @@ use tokio::sync::oneshot;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn app_calculates_consensus_offset() {
-    let mut interface = AsyncInterface::new();
+    let (ab_endpoint, ba_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
     let (state_invoker, handler) = create_invoker_handler_pair();
-    let mut app = new_test_instance(interface.responder(), handler);
+    let mut app = new_test_instance(ba_endpoint, handler);
     let (_shutdown_tx, shutdown_rx) = oneshot::channel();
 
     let n1_peer_id = PeerId::random();
@@ -29,9 +29,7 @@ async fn app_calculates_consensus_offset() {
         app.loop_until_shutdown(shutdown_rx).await;
     });
 
-    let requester = interface.requester();
-
-    requester
+    ab_endpoint
         .sender
         .send(Inbox::State((
             n1_peer_id,
@@ -44,7 +42,7 @@ async fn app_calculates_consensus_offset() {
             },
         )))
         .unwrap();
-    requester
+    ab_endpoint
         .sender
         .send(Inbox::State((
             n2_peer_id,
@@ -73,20 +71,18 @@ async fn app_calculates_consensus_offset() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn app_gets_missing_transaction() {
-    let mut interface = AsyncInterface::new();
+    let (ab_endpoint, ba_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
     let (state_invoker, handler) = create_invoker_handler_pair();
-    let mut app = new_test_instance(interface.responder(), handler);
+    let mut app = new_test_instance(ba_endpoint, handler);
     let (_shutdown_tx, shutdown_rx) = oneshot::channel();
 
     tokio::spawn(async move {
         app.loop_until_shutdown(shutdown_rx).await;
     });
 
-    let requester = interface.requester();
-
     // app gets some transaction from the future
-    _ = requester.sender.send(Inbox::NewTransaction(test_tx(5)));
-    _ = requester.sender.send(Inbox::NewTransaction(test_tx(0)));
+    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(5)));
+    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
 
     assert!(
         reaches_state(
@@ -102,7 +98,7 @@ async fn app_gets_missing_transaction() {
     );
 
     // and now app gets missing transaction
-    _ = requester.sender.send(Inbox::MissingTx(vec![
+    _ = ab_endpoint.sender.send(Inbox::MissingTx(vec![
         test_tx(3),
         test_tx(4),
         test_tx(2),
@@ -126,22 +122,20 @@ async fn app_gets_missing_transaction() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn app_gets_missing_transactions_that_smbd_else_requested() {
-    let mut interface = AsyncInterface::new();
+    let (mut ab_endpoint, ba_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
     let (state_invoker, handler) = create_invoker_handler_pair();
-    let mut app = new_test_instance(interface.responder(), handler);
+    let mut app = new_test_instance(ba_endpoint, handler);
     let (_shutdown_tx, shutdown_rx) = oneshot::channel();
 
     tokio::spawn(async move {
         app.loop_until_shutdown(shutdown_rx).await;
     });
 
-    let mut requester = interface.requester();
-
-    _ = requester.sender.send(Inbox::NewTransaction(test_tx(2)));
-    _ = requester.sender.send(Inbox::NewTransaction(test_tx(3)));
-    _ = requester.sender.send(Inbox::NewTransaction(test_tx(1)));
-    _ = requester.sender.send(Inbox::NewTransaction(test_tx(0)));
-    _ = requester.sender.send(Inbox::NewTransaction(test_tx(4)));
+    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(2)));
+    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(3)));
+    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(1)));
+    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
+    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(4)));
 
     assert!(
         reaches_state(
@@ -157,7 +151,7 @@ async fn app_gets_missing_transactions_that_smbd_else_requested() {
     );
 
     let rnd_peer = PeerId::random();
-    requester
+    ab_endpoint
         .sender
         .send(Inbox::RequestMissingTxs((
             rnd_peer,
@@ -165,7 +159,7 @@ async fn app_gets_missing_transactions_that_smbd_else_requested() {
         )))
         .expect("channel shouldnt be dropped");
 
-    while let Some(outbox) = requester.receiver.recv().await {
+    while let Some(outbox) = ab_endpoint.receiver.recv().await {
         let Outbox::RequestedTxsForPeer((peer, requested_txs)) = outbox else {
             continue;
         };
@@ -178,18 +172,17 @@ async fn app_gets_missing_transactions_that_smbd_else_requested() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn app_detects_that_its_behind_and_makes_request() {
-    let mut interface = AsyncInterface::new();
+    let (mut ab_endpoint, ba_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
     let (state_invoker, handler) = create_invoker_handler_pair();
-    let mut app = new_test_instance(interface.responder(), handler);
+    let mut app = new_test_instance(ba_endpoint, handler);
     let (_shutdown_tx, shutdown_rx) = oneshot::channel();
 
     tokio::spawn(async move {
         app.loop_until_shutdown(shutdown_rx).await;
     });
 
-    let mut requester = interface.requester();
-    _ = requester.sender.send(Inbox::NewTransaction(test_tx(0)));
-    _ = requester.sender.send(Inbox::NewTransaction(test_tx(4)));
+    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
+    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(4)));
 
     assert!(
         reaches_state(
@@ -205,7 +198,7 @@ async fn app_detects_that_its_behind_and_makes_request() {
     );
 
     let rnd_peer = PeerId::random();
-    requester
+    ab_endpoint
         .sender
         .send(Inbox::State((
             rnd_peer,
@@ -215,7 +208,7 @@ async fn app_detects_that_its_behind_and_makes_request() {
         )))
         .expect("dont drop");
 
-    while let Some(outbox) = requester.receiver.recv().await {
+    while let Some(outbox) = ab_endpoint.receiver.recv().await {
         let Outbox::RequestMissingTxs((peer, requested_ranges)) = outbox else {
             continue;
         };

@@ -1,4 +1,4 @@
-pub mod async_interface;
+pub mod duplex_channel;
 pub mod gm_request_response;
 pub mod invoker_handler;
 pub mod m2m_request_response;

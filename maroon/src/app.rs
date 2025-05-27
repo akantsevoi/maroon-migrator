@@ -2,7 +2,7 @@ use crate::app_interface::{CurrentOffsets, Request, Response};
 use crate::p2p_interface::{Inbox, NodeState, Outbox};
 use common::invoker_handler::{HandlerInterface, RequestWrapper};
 use common::{
-    async_interface::ReqResPair,
+    duplex_channel::Endpoint,
     range_key::{self, KeyOffset, KeyRange, TransactionID, key_from_range_and_offset},
     transaction::Transaction,
 };
@@ -38,7 +38,8 @@ pub struct App {
     params: Params,
 
     peer_id: PeerId,
-    p2p_interface: ReqResPair<Outbox, Inbox>,
+
+    p2p_interface: Endpoint<Outbox, Inbox>,
     state_interface: HandlerInterface<Request, Response>,
 
     /// offsets for the current node
@@ -59,7 +60,7 @@ pub struct App {
 impl App {
     pub fn new(
         peer_id: PeerId,
-        p2p_interface: ReqResPair<Outbox, Inbox>,
+        p2p_interface: Endpoint<Outbox, Inbox>,
         state_interface: HandlerInterface<Request, Response>,
         params: Params,
     ) -> Result<App, Box<dyn std::error::Error>> {

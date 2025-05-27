@@ -1,6 +1,6 @@
 use crate::p2p_interface::{self, NodeState};
 use common::{
-    async_interface::{AsyncInterface, ReqResPair},
+    duplex_channel::Endpoint,
     gm_request_response::{
         self, Behaviour as GMBehaviour, Event as GMEvent, Request as GMRequest,
         Response as GMResponse,
@@ -66,13 +66,14 @@ pub struct P2P {
     swarm: Swarm<MaroonBehaviour>,
     node_p2p_topic: TopicHash,
 
-    channels: AsyncInterface<Inbox, Outbox>,
+    interface_endpoint: Endpoint<Inbox, Outbox>,
 }
 
 impl P2P {
     pub fn new(
         node_urls: Vec<String>,
         self_url: String,
+        interface_endpoint: Endpoint<Inbox, Outbox>,
     ) -> Result<P2P, Box<dyn std::error::Error>> {
         let kp = identity::Keypair::generate_ed25519();
         let peer_id = PeerId::from(kp.public());
@@ -128,7 +129,7 @@ impl P2P {
             peer_id,
             swarm,
             node_p2p_topic: node_p2p_topic.hash().clone(),
-            channels: AsyncInterface::new(),
+            interface_endpoint,
         })
     }
 
@@ -151,25 +152,18 @@ impl P2P {
         Ok(())
     }
 
-    /// Gets p2p channels that will be used for communication
-    /// can be called only once
-    pub fn interface_channels(&mut self) -> ReqResPair<Outbox, Inbox> {
-        self.channels.responder()
-    }
-
     /// blocking operation, so you might want to spawn it on a separate thread
     /// after calling this - channels at `interface_channels` will start to send messages
     /// TODO: add stop/finish channel
-    pub async fn start_event_loop(mut self) {
+    pub async fn start_event_loop(self) {
         let mut alive_peer_ids: HashSet<PeerId> = HashSet::new();
         let mut alive_gateway_ids: HashSet<PeerId> = HashSet::new();
 
         alive_peer_ids.insert(self.peer_id);
         let mut swarm = self.swarm;
 
-        let req_channels = self.channels.requester();
-        let mut receiver = req_channels.receiver;
-        let to_app = req_channels.sender;
+        let mut receiver = self.interface_endpoint.receiver;
+        let to_app = self.interface_endpoint.sender;
 
         loop {
             tokio::select! {

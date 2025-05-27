@@ -3,7 +3,7 @@
 use std::{collections::HashMap, num::NonZeroUsize, thread::sleep, time::Duration};
 
 use common::{
-    async_interface::ReqResPair,
+    duplex_channel::Endpoint,
     gm_request_response::Request,
     invoker_handler::InvokerInterface,
     meta_exchange::Response,
