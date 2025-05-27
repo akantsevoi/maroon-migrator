@@ -126,11 +126,9 @@ async fn app_detects_that_its_behind_and_makes_request() {
         app.loop_until_shutdown(shutdown_rx).await;
     });
 
-    let requester = interface.requester();
-
-    // app gets some transaction from the future
-    _ = requester.sender.send(Inbox::NewTransaction(test_tx(5)));
+    let mut requester = interface.requester();
     _ = requester.sender.send(Inbox::NewTransaction(test_tx(0)));
+    _ = requester.sender.send(Inbox::NewTransaction(test_tx(4)));
 
     assert!(
         reaches_state(
@@ -145,25 +143,30 @@ async fn app_detects_that_its_behind_and_makes_request() {
         .await
     );
 
-    // and now app gets missing transaction
-    _ = requester.sender.send(Inbox::MissingTx(vec![
-        test_tx(3),
-        test_tx(4),
-        test_tx(2),
-        test_tx(0),
-        test_tx(1),
-    ]));
+    let rnd_peer = PeerId::random();
+    requester
+        .sender
+        .send(Inbox::State((
+            rnd_peer,
+            NodeState {
+                offsets: HashMap::<KeyRange, KeyOffset>::from([(KeyRange(0), KeyOffset(8))]),
+            },
+        )))
+        .expect("dont drop");
 
-    assert!(
-        reaches_state(
-            3,
-            Duration::from_millis(5),
-            &state_invoker,
-            CurrentOffsets {
-                self_offsets: HashMap::from([(KeyRange(0), KeyOffset(5))]),
-                consensus_offset: HashMap::new(),
-            }
-        )
-        .await
-    );
+    while let Some(outbox) = requester.receiver.recv().await {
+        let Outbox::RequestMissingTxs((peer, requested_ranges)) = outbox else {
+            continue;
+        };
+        assert_eq!(rnd_peer, peer);
+        assert_eq!(
+            requested_ranges,
+            vec![
+                (TransactionID(1), TransactionID(3)),
+                (TransactionID(5), TransactionID(8))
+            ]
+        );
+
+        break;
+    }
 }

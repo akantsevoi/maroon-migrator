@@ -20,7 +20,8 @@ use tokio::sync::oneshot;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn request_missed_txs() {
-    env_logger::init();
+    _ = env_logger::Builder::new().try_init();
+
     let (_shutdown_tx_0, shutdown_rx_0) = oneshot::channel();
     let (_shutdown_tx_1, shutdown_rx_1) = oneshot::channel();
     let (_shutdown_tx_2, shutdown_rx_2) = oneshot::channel();

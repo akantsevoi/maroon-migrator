@@ -180,6 +180,20 @@ impl App {
         })) {
             error!("main send: {e}");
         };
+
+        let delays = self_delays(&self.transactions, &self.self_offsets, &self.offsets);
+        if delays.len() == 0 {
+            return;
+        }
+
+        info!("delay detected: {:?}", delays);
+
+        for (peer_id, ranges) in delays {
+            self.p2p_interface
+                .sender
+                .send(Outbox::RequestMissingTxs((peer_id, ranges)))
+                .expect("dont drop channel");
+        }
     }
 
     fn handle_request(&self, wrapper: RequestWrapper<Request, Response>) {
@@ -198,6 +212,7 @@ impl App {
     }
 }
 
+/// moves offset pointer for a particular peerID(node)
 fn move_offset_pointer(
     offsets: &mut HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
     peer_id: PeerId,
@@ -212,6 +227,7 @@ fn move_offset_pointer(
     mut_range.insert(peer_id, new_offset);
 }
 
+/// wrapper around `update_self_offsets`
 fn update_self_offset(
     self_offsets: &mut HashMap<KeyRange, KeyOffset>,
     transactions: &mut HashMap<TransactionID, Transaction>,
@@ -226,6 +242,8 @@ fn update_self_offset(
     }
 }
 
+/// inserts transactions, updates self_offset pointers if should
+/// returns changed offsets if there are any
 fn update_self_offsets(
     self_offsets: &mut HashMap<KeyRange, KeyOffset>,
     transactions: &mut HashMap<TransactionID, Transaction>,
@@ -271,10 +289,12 @@ fn update_self_offsets(
     updates
 }
 
+/// calculates delays that current node (self_delays) has compare to other nodes `offsets`
+/// also uses transactions in order to reduce amount of requested transactions
 fn self_delays(
-    transactions: HashMap<TransactionID, Transaction>,
-    self_offsets: HashMap<KeyRange, KeyOffset>,
-    offsets: HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
+    transactions: &HashMap<TransactionID, Transaction>,
+    self_offsets: &HashMap<KeyRange, KeyOffset>,
+    offsets: &HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
 ) -> HashMap<PeerId, Vec<(TransactionID, TransactionID)>> {
     let mut result = HashMap::<PeerId, Vec<(TransactionID, TransactionID)>>::new();
 
@@ -301,11 +321,11 @@ fn self_delays(
 
         let mut pointer = left_border;
         while pointer <= right_border {
-            if transactions.contains_key(&key_from_range_and_offset(range, pointer)) {
+            if transactions.contains_key(&key_from_range_and_offset(*range, pointer)) {
                 if left_border < pointer {
                     new_tx_ranges.push((
-                        key_from_range_and_offset(range, left_border),
-                        key_from_range_and_offset(range, pointer - KeyOffset(1)),
+                        key_from_range_and_offset(*range, left_border),
+                        key_from_range_and_offset(*range, pointer - KeyOffset(1)),
                     ));
                 }
                 pointer += KeyOffset(1);
@@ -316,8 +336,8 @@ fn self_delays(
         }
         if pointer != left_border {
             new_tx_ranges.push((
-                key_from_range_and_offset(range, left_border),
-                key_from_range_and_offset(range, pointer - KeyOffset(1)),
+                key_from_range_and_offset(*range, left_border),
+                key_from_range_and_offset(*range, pointer - KeyOffset(1)),
             ));
         }
 
@@ -841,7 +861,7 @@ mod tests {
                 ]),
             },
         ] {
-            let mut ranges = self_delays(case.transactions, case.self_offsets, case.offsets);
+            let mut ranges = self_delays(&case.transactions, &case.self_offsets, &case.offsets);
             for (_, v) in ranges.iter_mut() {
                 v.sort_by_key(|pair| pair.0);
             }

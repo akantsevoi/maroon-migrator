@@ -173,10 +173,10 @@ impl P2P {
 
         loop {
             tokio::select! {
-                Some(Outbox::State(state)) = receiver.recv() => {
+                Some(outbox) = receiver.recv() => {
                     handle_receiver_outbox(
                         &mut swarm,
-                        state,
+                        outbox,
                         self.peer_id,
                         self.node_p2p_topic.clone(),
                     );
@@ -197,26 +197,42 @@ impl P2P {
 
 fn handle_receiver_outbox(
     swarm: &mut Swarm<MaroonBehaviour>,
-    state: NodeState,
+    outbox_message: Outbox,
     peer_id: PeerId,
     node_p2p_topic: TopicHash,
 ) {
-    let message = P2pMessage {
-        peer_id: peer_id,
-        payload: Outbox::State(state),
-    };
+    match outbox_message {
+        Outbox::State(_) => {
+            let message = P2pMessage {
+                peer_id: peer_id,
+                payload: outbox_message,
+            };
 
-    let bytes = guard_ok!(serde_json::to_vec(&message), e, {
-        error!("serialize message error: {e}");
-        return;
-    });
+            let bytes = guard_ok!(serde_json::to_vec(&message), e, {
+                error!("serialize message error: {e}");
+                return;
+            });
 
-    if let Err(e) = swarm
-        .behaviour_mut()
-        .gossipsub
-        .publish(node_p2p_topic, bytes)
-    {
-        warn!("publish error: {}", e);
+            if let Err(e) = swarm
+                .behaviour_mut()
+                .gossipsub
+                .publish(node_p2p_topic, bytes)
+            {
+                warn!("publish error: {}", e);
+            }
+        }
+        Outbox::RequestMissingTxs((peer_id, ranges)) => {
+            swarm
+                .behaviour_mut()
+                .m2m_req_res
+                .send_request(&peer_id, M2MRequest::GetMissingTx(ranges));
+        }
+        Outbox::RequestedTxsForPeer((peer_id, missing_txs)) => {
+            swarm
+                .behaviour_mut()
+                .m2m_req_res
+                .send_request(&peer_id, M2MRequest::MissingTx(missing_txs));
+        }
     }
 }
 
@@ -237,10 +253,22 @@ fn handle_swarm_event(
                 Outbox::State(state) => {
                     _ = to_app.send(Inbox::State((p2p_message.peer_id, state)));
                 }
-                Outbox::RequestedTxsForPeer((peer_id, missing_txs)) => {
-                    // swarm.behaviour_mut().
-                    println!("");
-                    println!("");
+                Outbox::RequestedTxsForPeer((_, missing_txs)) => {
+                    to_app
+                        .send(Inbox::MissingTx(missing_txs))
+                        .expect("dont drop receiver");
+
+                    //
+                    // swarm.behaviour_mut().m2m_req_res.send_response(ch, rs)
+                }
+                Outbox::RequestMissingTxs((peer_id, requested_ranges)) => {
+                    to_app
+                        .send(Inbox::RequestMissingTxs((peer_id, requested_ranges)))
+                        .expect("dont drop receiver");
+                    // swarm
+                    //     .behaviour_mut()
+                    //     .m2m_req_res
+                    //     .send_request(&peer_id, M2MRequest::GetMissingTx(requested_ranges));
                 }
             },
             Err(e) => {

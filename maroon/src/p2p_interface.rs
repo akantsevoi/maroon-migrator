@@ -15,6 +15,7 @@ use std::{
 pub enum Outbox {
     State(NodeState),
 
+    RequestMissingTxs((PeerId, Vec<(TransactionID, TransactionID)>)),
     RequestedTxsForPeer((PeerId, Vec<Transaction>)),
 }
 
