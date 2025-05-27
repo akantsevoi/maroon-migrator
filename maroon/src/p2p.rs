@@ -202,10 +202,10 @@ fn handle_receiver_outbox(
     node_p2p_topic: TopicHash,
 ) {
     match outbox_message {
-        Outbox::State(_) => {
-            let message = P2pMessage {
+        Outbox::State(state) => {
+            let message = GossipMessage {
                 peer_id: peer_id,
-                payload: outbox_message,
+                payload: GossipPayload::State(state),
             };
 
             let bytes = guard_ok!(serde_json::to_vec(&message), e, {
@@ -245,30 +245,11 @@ fn handle_swarm_event(
 ) {
     match event {
         SwarmEvent::Behaviour(MaroonEvent::Gossipsub(GossipsubEvent::Message {
-            propagation_source: _,
-            message_id: _,
-            message,
-        })) => match serde_json::from_slice::<P2pMessage>(&message.data) {
+            message, ..
+        })) => match serde_json::from_slice::<GossipMessage>(&message.data) {
             Ok(p2p_message) => match p2p_message.payload {
-                Outbox::State(state) => {
+                GossipPayload::State(state) => {
                     _ = to_app.send(Inbox::State((p2p_message.peer_id, state)));
-                }
-                Outbox::RequestedTxsForPeer((_, missing_txs)) => {
-                    to_app
-                        .send(Inbox::MissingTx(missing_txs))
-                        .expect("dont drop receiver");
-
-                    //
-                    // swarm.behaviour_mut().m2m_req_res.send_response(ch, rs)
-                }
-                Outbox::RequestMissingTxs((peer_id, requested_ranges)) => {
-                    to_app
-                        .send(Inbox::RequestMissingTxs((peer_id, requested_ranges)))
-                        .expect("dont drop receiver");
-                    // swarm
-                    //     .behaviour_mut()
-                    //     .m2m_req_res
-                    //     .send_request(&peer_id, M2MRequest::GetMissingTx(requested_ranges));
                 }
             },
             Err(e) => {
@@ -417,10 +398,14 @@ fn handle_meta_exchange(
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct P2pMessage {
+struct GossipMessage {
     peer_id: PeerId,
 
-    // Only outbox can be sent. If more fields will be needed on interface vs network - split into two types
-    // This is the only information in that enum that node can send to each other
-    payload: Outbox,
+    // This is the only information in that enum that node can gossip to each other
+    payload: GossipPayload,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+enum GossipPayload {
+    State(NodeState),
 }
