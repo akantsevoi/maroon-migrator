@@ -203,7 +203,7 @@ async fn app_detects_that_its_behind_and_makes_request() {
         .send(Inbox::State((
             rnd_peer,
             NodeState {
-                offsets: HashMap::<KeyRange, KeyOffset>::from([(KeyRange(0), KeyOffset(8))]),
+                offsets: HashMap::from([(KeyRange(0), KeyOffset(8))]),
             },
         )))
         .expect("dont drop");
