@@ -28,6 +28,13 @@ pub struct Params {
   /// minimum amount of nodes that should have the same transactions(+ current one) in order to confirm them
   /// TODO: separate pub struct ConsensusAlgoParams in a separate lib/consensus crate with its own test suite?
   pub consensus_nodes: NonZeroUsize,
+
+  /// TODO: it will be logical time in the future
+  ///
+  /// periods between epochs <br>
+  /// this parameter only says **when** you should start a new epoch <br>
+  /// however due to multiple reasons a new epoch might not start after this period
+  pub epoch_period: std::time::Duration,
 }
 
 impl Params {
@@ -35,6 +42,7 @@ impl Params {
     Params {
       advertise_period: Duration::from_secs(5),
       consensus_nodes: NonZeroUsize::new(2).unwrap(),
+      epoch_period: Duration::from_secs(10),
     }
   }
 
@@ -45,6 +53,11 @@ impl Params {
 
   pub fn set_consensus_nodes(mut self, n_consensus: NonZeroUsize) -> Params {
     self.consensus_nodes = n_consensus;
+    self
+  }
+
+  pub fn set_epoch_period(mut self, new_period: Duration) -> Params {
+    self.epoch_period = new_period;
     self
   }
 }
@@ -93,22 +106,26 @@ impl App {
 
   /// starts a loop that processes events and executes logic
   pub async fn loop_until_shutdown(&mut self, mut shutdown: oneshot::Receiver<()>) {
-    let mut advertise_offset_ticker = tokio::time::interval(self.params.advertise_period);
+    let mut advertise_offset_ticker = interval(self.params.advertise_period);
+    advertise_offset_ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    let mut commit_epoch_ticker = interval(self.params.epoch_period);
 
     loop {
       tokio::select! {
           _ = advertise_offset_ticker.tick() => {
-              self.advertise_offsets_and_request_missing();
+            self.advertise_offsets_and_request_missing();
+          },
+          _ = commit_epoch_ticker.tick() => {
           },
           Option::Some(req_wrapper) = self.state_interface.receiver.recv() => {
-              self.handle_request(req_wrapper);
+            self.handle_request(req_wrapper);
           },
           Some(payload) = self.p2p_interface.receiver.recv() => {
-              self.handle_inbox_message(payload);
+            self.handle_inbox_message(payload);
           },
           _ = &mut shutdown =>{
-              info!("TODO: shutdown the app");
-              break;
+            info!("TODO: shutdown the app");
+            break;
           }
       }
     }
