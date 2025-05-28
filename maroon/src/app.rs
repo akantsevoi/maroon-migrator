@@ -1,12 +1,14 @@
 use crate::app_interface::{CurrentOffsets, Request, Response};
 use crate::p2p_interface::{Inbox, NodeState, Outbox};
+use common::invoker_handler::{HandlerInterface, RequestWrapper};
 use common::{
-    async_interface::{AsyncInterface, ReqResPair},
-    gm_request_response::Transaction,
-    range_key::{self, KeyOffset, KeyRange, TransactionID},
+    async_interface::ReqResPair,
+    range_key::{self, KeyOffset, KeyRange, TransactionID, key_from_range_and_offset},
+    transaction::Transaction,
 };
 use libp2p::PeerId;
 use log::{error, info};
+use std::vec;
 use std::{
     collections::{HashMap, HashSet},
     num::NonZeroUsize,
@@ -38,7 +40,7 @@ pub struct App {
 
     peer_id: PeerId,
     p2p_interface: ReqResPair<Outbox, Inbox>,
-    state_interface: AsyncInterface<Request, Response>,
+    state_interface: HandlerInterface<Request, Response>,
 
     /// offsets for the current node
     self_offsets: HashMap<KeyRange, KeyOffset>,
@@ -59,13 +61,14 @@ impl App {
     pub fn new(
         peer_id: PeerId,
         p2p_interface: ReqResPair<Outbox, Inbox>,
+        state_interface: HandlerInterface<Request, Response>,
         params: Params,
     ) -> Result<App, Box<dyn std::error::Error>> {
         Ok(App {
             params,
             peer_id,
             p2p_interface,
-            state_interface: AsyncInterface::new(),
+            state_interface,
             offsets: HashMap::new(),
             self_offsets: HashMap::new(),
             consensus_offset: HashMap::new(),
@@ -73,22 +76,16 @@ impl App {
         })
     }
 
-    /// can be called only once because we're moving ownership of receiver channels
-    pub fn get_state_interface(&mut self) -> ReqResPair<Request, Response> {
-        self.state_interface.requester()
-    }
-
     /// starts a loop that processes events and executes logic
     pub async fn loop_until_shutdown(&mut self, mut shutdown: oneshot::Receiver<()>) {
         let mut ticker = tokio::time::interval(self.params.advertise_period);
-        let mut p = self.state_interface.responder();
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
                     self.handle_on_tick();
                 },
-                Some(request) = p.receiver.recv() => {
-                    self.handle_request(request, &p.sender);
+                Option::Some(req_wrapper) = self.state_interface.receiver.recv() => {
+                    self.handle_request(req_wrapper);
                 },
                 Some(payload) = self.p2p_interface.receiver.recv() => {
                     self.handle_inbox_message(payload);
@@ -135,14 +132,43 @@ impl App {
                 if let Some((new_range, new_offset)) =
                     update_self_offset(&mut self.self_offsets, &mut self.transactions, tx)
                 {
-                    let Some(mut_range) = self.offsets.get_mut(&new_range) else {
-                        self.offsets
-                            .insert(new_range, HashMap::from([(self.peer_id, new_offset)]));
-                        return;
-                    };
-
-                    mut_range.insert(self.peer_id, new_offset);
+                    move_offset_pointer(&mut self.offsets, self.peer_id, new_range, new_offset);
                 }
+            }
+            Inbox::MissingTx(txs) => {
+                for (new_range, new_offset) in update_self_offsets(
+                    &mut self.self_offsets,
+                    &mut self.transactions,
+                    txs_to_range_tx_map(txs),
+                ) {
+                    move_offset_pointer(&mut self.offsets, self.peer_id, new_range, new_offset);
+                }
+            }
+            Inbox::RequestMissingTxs((peer_id, ranges)) => {
+                let mut capacity: usize = 0;
+                for (left, right) in &ranges {
+                    let lu = left.0 as usize;
+                    let ru = right.0 as usize;
+                    capacity += ru - lu;
+                }
+
+                let mut response: Vec<Transaction> = Vec::with_capacity(capacity);
+
+                for (left, right) in ranges {
+                    let mut pointer = left;
+                    while pointer <= right {
+                        let Some(tx) = self.transactions.get(&pointer) else {
+                            continue;
+                        };
+                        response.push(tx.clone());
+                        pointer += TransactionID(1);
+                    }
+                }
+
+                self.p2p_interface
+                    .sender
+                    .send(Outbox::RequestedTxsForPeer((peer_id, response)))
+                    .expect("TODO: shouldnt drop sender");
             }
         }
     }
@@ -154,52 +180,175 @@ impl App {
         })) {
             error!("main send: {e}");
         };
+
+        let delays = self_delays(&self.transactions, &self.self_offsets, &self.offsets);
+        if delays.len() == 0 {
+            return;
+        }
+
+        info!("delay detected: {:?}", delays);
+
+        for (peer_id, ranges) in delays {
+            self.p2p_interface
+                .sender
+                .send(Outbox::RequestMissingTxs((peer_id, ranges)))
+                .expect("dont drop channel");
+        }
     }
 
-    fn handle_request(&self, request: Request, sender: &UnboundedSender<Response>) {
-        match request {
+    fn handle_request(&self, wrapper: RequestWrapper<Request, Response>) {
+        match wrapper.request {
             Request::GetState => {
-                if let Err(e) = sender.send(Response::State(CurrentOffsets {
-                    self_offsets: self.self_offsets.clone(),
-                    consensus_offset: self.consensus_offset.clone(),
-                })) {
-                    error!("state_interface: {e}");
+                if let Err(unsent_response) =
+                    wrapper.response.send(Response::State(CurrentOffsets {
+                        self_offsets: self.self_offsets.clone(),
+                        consensus_offset: self.consensus_offset.clone(),
+                    }))
+                {
+                    error!("couldnt send response: {unsent_response}");
                 }
             }
         }
     }
 }
 
+/// moves offset pointer for a particular peerID(node)
+fn move_offset_pointer(
+    offsets: &mut HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
+    peer_id: PeerId,
+    new_range: KeyRange,
+    new_offset: KeyOffset,
+) {
+    let Some(mut_range) = offsets.get_mut(&new_range) else {
+        offsets.insert(new_range, HashMap::from([(peer_id, new_offset)]));
+        return;
+    };
+
+    mut_range.insert(peer_id, new_offset);
+}
+
+/// wrapper around `update_self_offsets`
 fn update_self_offset(
     self_offsets: &mut HashMap<KeyRange, KeyOffset>,
     transactions: &mut HashMap<TransactionID, Transaction>,
-    transaction: Transaction,
+    tx: Transaction,
 ) -> Option<(KeyRange, KeyOffset)> {
-    let (range, offset) = range_key::range_offset_from_key(transaction.id);
-    transactions.insert(transaction.id, transaction);
+    let mut updates =
+        update_self_offsets(self_offsets, transactions, txs_to_range_tx_map(vec![tx]));
+    if updates.len() == 0 {
+        None
+    } else {
+        updates.pop()
+    }
+}
 
-    let start = match self_offsets.get(&range) {
-        Some(existing_offset) => existing_offset,
-        None => {
+/// inserts transactions, updates self_offset pointers if should
+/// returns changed offsets if there are any
+fn update_self_offsets(
+    self_offsets: &mut HashMap<KeyRange, KeyOffset>,
+    transactions: &mut HashMap<TransactionID, Transaction>,
+    range_transactions: HashMap<KeyRange, Vec<Transaction>>,
+) -> Vec<(KeyRange, KeyOffset)> {
+    let mut updates = Vec::<(KeyRange, KeyOffset)>::new();
+
+    for (range, txs) in range_transactions {
+        let mut has_0_tx = false;
+        for tx in txs {
+            let (_, offset) = range_key::range_offset_from_key(tx.id);
+            transactions.insert(tx.id, tx);
+
             if offset == KeyOffset(0) {
-                self_offsets.insert(range, KeyOffset(0));
-            } else {
-                return None;
+                has_0_tx = true;
             }
-            &KeyOffset(0)
         }
-    };
 
-    let mut key = range_key::key_from_range_and_offset(range, *start);
-    while transactions.contains_key(&(key + TransactionID(1))) {
-        // TODO: there is an overflow error here. If one range is finished transaction can still be in the map, but offset will be above the maximum
-        key += TransactionID(1);
+        let start = match self_offsets.get(&range) {
+            Some(existing_offset) => existing_offset,
+            None => {
+                if has_0_tx {
+                    self_offsets.insert(range, KeyOffset(0));
+                } else {
+                    continue;
+                }
+                &KeyOffset(0)
+            }
+        };
+
+        let mut key = range_key::key_from_range_and_offset(range, *start);
+        while transactions.contains_key(&(key + TransactionID(1))) {
+            // TODO: there is an overflow error here. If one range is finished transaction can still be in the map, but offset will be above the maximum
+            key += TransactionID(1);
+        }
+
+        let (_, new_offset) = range_key::range_offset_from_key(key);
+        self_offsets.insert(range, new_offset);
+
+        updates.push((range, new_offset));
     }
 
-    let (_, new_offset) = range_key::range_offset_from_key(key);
-    self_offsets.insert(range, new_offset);
+    updates
+}
 
-    Some((range, new_offset))
+/// calculates delays that current node (self_delays) has compare to other nodes `offsets`
+/// also uses transactions in order to reduce amount of requested transactions
+fn self_delays(
+    transactions: &HashMap<TransactionID, Transaction>,
+    self_offsets: &HashMap<KeyRange, KeyOffset>,
+    offsets: &HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
+) -> HashMap<PeerId, Vec<(TransactionID, TransactionID)>> {
+    let mut result = HashMap::<PeerId, Vec<(TransactionID, TransactionID)>>::new();
+
+    for (range, nodes) in offsets {
+        let Some((peer_id, offset)) = nodes
+            .iter()
+            .max_by_key(|(_peer, v)| **v)
+            .map(|(peer, &offset)| (peer.clone(), offset))
+        else {
+            continue;
+        };
+
+        let right_border = offset.clone();
+        let mut left_border = KeyOffset(0);
+        if let Some(current) = self_offsets.get(&range) {
+            if *current >= right_border {
+                continue;
+            } else {
+                left_border = *current + KeyOffset(1);
+            }
+        };
+
+        let mut new_tx_ranges = Vec::<(TransactionID, TransactionID)>::new();
+
+        let mut pointer = left_border;
+        while pointer <= right_border {
+            if transactions.contains_key(&key_from_range_and_offset(*range, pointer)) {
+                if left_border < pointer {
+                    new_tx_ranges.push((
+                        key_from_range_and_offset(*range, left_border),
+                        key_from_range_and_offset(*range, pointer - KeyOffset(1)),
+                    ));
+                }
+                pointer += KeyOffset(1);
+                left_border = pointer;
+            } else {
+                pointer += KeyOffset(1);
+            }
+        }
+        if pointer != left_border {
+            new_tx_ranges.push((
+                key_from_range_and_offset(*range, left_border),
+                key_from_range_and_offset(*range, pointer - KeyOffset(1)),
+            ));
+        }
+
+        if let Some(ranges) = result.get_mut(&peer_id) {
+            ranges.append(&mut new_tx_ranges);
+        } else {
+            result.insert(peer_id.clone(), new_tx_ranges);
+        }
+    }
+
+    result
 }
 
 /// returns maximum offset among peers keeping in mind the `n_consensus`
@@ -234,18 +383,32 @@ fn recalculate_order(self_id: PeerId, ids: &HashSet<PeerId>) {
     );
 }
 
-#[cfg(test)]
-impl App {
-    pub fn new_test_instance(channels: ReqResPair<Outbox, Inbox>) -> App {
-        App::new(PeerId::random(), channels, Params::default())
-            .expect("failed to create test App instance")
+pub fn txs_to_range_tx_map(txs: Vec<Transaction>) -> HashMap<KeyRange, Vec<Transaction>> {
+    let mut range_map: HashMap<KeyRange, Vec<Transaction>> = HashMap::new();
+    for tx in txs {
+        let range = range_key::range_index_by_key(tx.id);
+
+        if let Some(bucket) = range_map.get_mut(&range) {
+            bucket.push(tx);
+        } else {
+            range_map.insert(range, vec![tx]);
+        }
     }
+
+    return range_map;
 }
 
 #[cfg(test)]
 mod tests {
+    use std::hash::Hash;
+
+    use crate::test_helpers::test_tx;
+
     use super::*;
-    use common::gm_request_response::{Transaction, TxStatus};
+    use common::{
+        invoker_handler::create_invoker_handler_pair,
+        transaction::{Transaction, TxStatus},
+    };
     use tokio::{sync::mpsc, time};
 
     #[tokio::test(flavor = "multi_thread")]
@@ -256,11 +419,15 @@ mod tests {
 
         let n1_peer_id = PeerId::random();
         let n2_peer_id = PeerId::random();
+        let (_, handler) = create_invoker_handler_pair();
 
-        let mut app = App::new_test_instance(ReqResPair {
-            receiver: rx_in,
-            sender: tx_out,
-        });
+        let mut app = crate::test_helpers::new_test_instance(
+            ReqResPair {
+                receiver: rx_in,
+                sender: tx_out,
+            },
+            handler,
+        );
 
         let handle = tokio::spawn(async move {
             app.loop_until_shutdown(shutdown_rx).await;
@@ -605,6 +772,100 @@ mod tests {
                 "{}",
                 case.label,
             );
+        }
+    }
+
+    #[test]
+    fn test_self_delays_calculation() {
+        struct Case<'a> {
+            label: &'a str,
+            self_offsets: HashMap<KeyRange, KeyOffset>,
+            transactions: HashMap<TransactionID, Transaction>,
+            offsets: HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
+            expected_ranges: HashMap<PeerId, Vec<(TransactionID, TransactionID)>>,
+        }
+
+        let peer_id_0 = PeerId::random();
+        let peer_id_1 = PeerId::random();
+
+        for case in vec![
+            Case {
+                label: "empty everything",
+                self_offsets: HashMap::new(),
+                transactions: HashMap::new(),
+                offsets: HashMap::new(),
+                expected_ranges: HashMap::new(),
+            },
+            Case {
+                label: "self in front",
+                self_offsets: HashMap::from([
+                    (KeyRange(0), KeyOffset(5)),
+                    (KeyRange(2), KeyOffset(3)),
+                ]),
+                transactions: HashMap::new(),
+                offsets: HashMap::from([
+                    (
+                        KeyRange(0),
+                        HashMap::from([(peer_id_0, KeyOffset(5)), (peer_id_1, KeyOffset(2))]),
+                    ),
+                    (
+                        KeyRange(2),
+                        HashMap::from([(peer_id_0, KeyOffset(1)), (peer_id_1, KeyOffset(2))]),
+                    ),
+                ]),
+                expected_ranges: HashMap::new(),
+            },
+            Case {
+                label: "self behind few and few gaps in txs",
+                self_offsets: HashMap::from([
+                    (KeyRange(0), KeyOffset(1)),
+                    (KeyRange(2), KeyOffset(1)),
+                ]),
+                transactions: HashMap::from([
+                    (TransactionID(5), test_tx(5)),
+                    (TransactionID(6), test_tx(6)),
+                ]),
+                offsets: HashMap::from([
+                    (
+                        KeyRange(0),
+                        HashMap::from([(peer_id_0, KeyOffset(8)), (peer_id_1, KeyOffset(2))]),
+                    ),
+                    (
+                        KeyRange(2),
+                        HashMap::from([(peer_id_0, KeyOffset(3)), (peer_id_1, KeyOffset(1))]),
+                    ),
+                    (
+                        KeyRange(3),
+                        HashMap::from([(peer_id_0, KeyOffset(1)), (peer_id_1, KeyOffset(3))]),
+                    ),
+                ]),
+                expected_ranges: HashMap::from([
+                    (
+                        peer_id_0,
+                        vec![
+                            (TransactionID(2), TransactionID(4)),
+                            (TransactionID(7), TransactionID(8)),
+                            (
+                                key_from_range_and_offset(KeyRange(2), KeyOffset(2)),
+                                key_from_range_and_offset(KeyRange(2), KeyOffset(3)),
+                            ),
+                        ],
+                    ),
+                    (
+                        peer_id_1,
+                        vec![(
+                            key_from_range_and_offset(KeyRange(3), KeyOffset(0)),
+                            key_from_range_and_offset(KeyRange(3), KeyOffset(3)),
+                        )],
+                    ),
+                ]),
+            },
+        ] {
+            let mut ranges = self_delays(&case.transactions, &case.self_offsets, &case.offsets);
+            for (_, v) in ranges.iter_mut() {
+                v.sort_by_key(|pair| pair.0);
+            }
+            assert_eq!(case.expected_ranges, ranges, "{}", case.label);
         }
     }
 }

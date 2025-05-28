@@ -26,7 +26,7 @@ First part of the plan is to get the reliable engine that will get requests from
     - [X] MN. calculate delay for each node
 - [X] MN. regularly exchange current vector state to all MNs
 - [X] G. Minimal gateway implementation that just publishes transactions
-- [ ] MN. Request outdated transactions(p2p) (in prog...)
+- [X] MN. Request outdated transactions(p2p)
 - [ ] MN. Fix "epoch" (local)
 - [ ] MN. integration - "puf-puf-magic"
 

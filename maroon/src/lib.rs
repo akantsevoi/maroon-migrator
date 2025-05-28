@@ -7,3 +7,10 @@ pub mod stack;
 
 mod p2p;
 mod p2p_interface;
+
+#[cfg(test)]
+mod app_tests_multi; // test several apps as a black box
+#[cfg(test)]
+mod app_tests_single; // test app as a black box
+#[cfg(test)]
+mod test_helpers;

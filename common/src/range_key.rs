@@ -1,4 +1,4 @@
-use derive_more::{Add, AddAssign, Display};
+use derive_more::{Add, AddAssign, Display, Sub};
 use serde::{Deserialize, Serialize};
 
 // TODO: KeyRange and KeyOffset shouldn't be u64 since their combination fits into u64
@@ -9,13 +9,38 @@ use serde::{Deserialize, Serialize};
 pub struct KeyRange(pub u64);
 
 #[derive(
-    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Add, Display,
+    Serialize,
+    Deserialize,
+    AddAssign,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Add,
+    Display,
+    Sub,
 )]
 pub struct KeyOffset(pub u64);
 
 /// Unique identifier for a transaction
 #[derive(
-    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Add, AddAssign,
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Add,
+    AddAssign,
+    Sub,
 )]
 pub struct TransactionID(pub u64);
 
@@ -82,5 +107,12 @@ mod tests {
             assert_eq!(offset, ex_offset, "key: {}", key.0);
             assert_eq!(key_from_range_and_offset(range, offset), key);
         }
+    }
+
+    #[test]
+    fn test_transaction_id_operation() {
+        let tx1 = TransactionID(10);
+        let tx2 = TransactionID(15);
+        assert_eq!(TransactionID(5), tx2 - tx1);
     }
 }

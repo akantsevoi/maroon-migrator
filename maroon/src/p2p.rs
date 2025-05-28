@@ -1,7 +1,14 @@
 use crate::p2p_interface::{self, NodeState};
 use common::{
     async_interface::{AsyncInterface, ReqResPair},
-    gm_request_response::{self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response},
+    gm_request_response::{
+        self, Behaviour as GMBehaviour, Event as GMEvent, Request as GMRequest,
+        Response as GMResponse,
+    },
+    m2m_request_response::{
+        self, Behaviour as M2MBehaviour, Event as M2MEvent, Request as M2MRequest,
+        Response as M2MResponse,
+    },
     meta_exchange::{
         self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Request as MERequest,
         Response as MEResponse, Role,
@@ -38,6 +45,7 @@ struct MaroonBehaviour {
     gossipsub: GossipsubBehaviour,
     request_response: GMBehaviour,
     meta_exchange: MetaExchangeBehaviour,
+    m2m_req_res: M2MBehaviour,
 }
 
 #[derive(From)]
@@ -46,6 +54,7 @@ pub enum MaroonEvent {
     Gossipsub(GossipsubEvent),
     RequestResponse(GMEvent),
     MetaExchange(MEEvent),
+    M2MReqRes(M2MEvent),
 }
 
 pub struct P2P {
@@ -102,6 +111,7 @@ impl P2P {
             gossipsub,
             request_response: gm_request_response::create_behaviour(ProtocolSupport::Inbound),
             meta_exchange: meta_exchange::create_behaviour(),
+            m2m_req_res: m2m_request_response::create_behaviour(),
         };
 
         let swarm = Swarm::new(
@@ -159,14 +169,14 @@ impl P2P {
 
         let req_channels = self.channels.requester();
         let mut receiver = req_channels.receiver;
-        let sender = req_channels.sender;
+        let to_app = req_channels.sender;
 
         loop {
             tokio::select! {
-                Some(Outbox::State(state)) = receiver.recv() => {
+                Some(outbox) = receiver.recv() => {
                     handle_receiver_outbox(
                         &mut swarm,
-                        state,
+                        outbox,
                         self.peer_id,
                         self.node_p2p_topic.clone(),
                     );
@@ -175,7 +185,7 @@ impl P2P {
                     handle_swarm_event(
                         &mut swarm,
                         event,
-                        &sender,
+                        &to_app,
                         &mut alive_peer_ids,
                         &mut alive_gateway_ids,
                     );
@@ -187,33 +197,49 @@ impl P2P {
 
 fn handle_receiver_outbox(
     swarm: &mut Swarm<MaroonBehaviour>,
-    state: NodeState,
+    outbox_message: Outbox,
     peer_id: PeerId,
     node_p2p_topic: TopicHash,
 ) {
-    let message = P2pMessage {
-        peer_id: peer_id,
-        payload: Outbox::State(state),
-    };
+    match outbox_message {
+        Outbox::State(_) => {
+            let message = P2pMessage {
+                peer_id: peer_id,
+                payload: outbox_message,
+            };
 
-    let bytes = guard_ok!(serde_json::to_vec(&message), e, {
-        error!("serialize message error: {e}");
-        return;
-    });
+            let bytes = guard_ok!(serde_json::to_vec(&message), e, {
+                error!("serialize message error: {e}");
+                return;
+            });
 
-    if let Err(e) = swarm
-        .behaviour_mut()
-        .gossipsub
-        .publish(node_p2p_topic, bytes)
-    {
-        warn!("publish error: {}", e);
+            if let Err(e) = swarm
+                .behaviour_mut()
+                .gossipsub
+                .publish(node_p2p_topic, bytes)
+            {
+                warn!("publish error: {}", e);
+            }
+        }
+        Outbox::RequestMissingTxs((peer_id, ranges)) => {
+            swarm
+                .behaviour_mut()
+                .m2m_req_res
+                .send_request(&peer_id, M2MRequest::GetMissingTx(ranges));
+        }
+        Outbox::RequestedTxsForPeer((peer_id, missing_txs)) => {
+            swarm
+                .behaviour_mut()
+                .m2m_req_res
+                .send_request(&peer_id, M2MRequest::MissingTx(missing_txs));
+        }
     }
 }
 
 fn handle_swarm_event(
     swarm: &mut Swarm<MaroonBehaviour>,
     event: SwarmEvent<MaroonEvent>,
-    sender: &UnboundedSender<Inbox>,
+    to_app: &UnboundedSender<Inbox>,
     alive_peer_ids: &mut HashSet<PeerId>,
     alive_gateway_ids: &mut HashSet<PeerId>,
 ) {
@@ -225,7 +251,24 @@ fn handle_swarm_event(
         })) => match serde_json::from_slice::<P2pMessage>(&message.data) {
             Ok(p2p_message) => match p2p_message.payload {
                 Outbox::State(state) => {
-                    _ = sender.send(Inbox::State((p2p_message.peer_id, state)));
+                    _ = to_app.send(Inbox::State((p2p_message.peer_id, state)));
+                }
+                Outbox::RequestedTxsForPeer((_, missing_txs)) => {
+                    to_app
+                        .send(Inbox::MissingTx(missing_txs))
+                        .expect("dont drop receiver");
+
+                    //
+                    // swarm.behaviour_mut().m2m_req_res.send_response(ch, rs)
+                }
+                Outbox::RequestMissingTxs((peer_id, requested_ranges)) => {
+                    to_app
+                        .send(Inbox::RequestMissingTxs((peer_id, requested_ranges)))
+                        .expect("dont drop receiver");
+                    // swarm
+                    //     .behaviour_mut()
+                    //     .m2m_req_res
+                    //     .send_request(&peer_id, M2MRequest::GetMissingTx(requested_ranges));
                 }
             },
             Err(e) => {
@@ -238,14 +281,17 @@ fn handle_swarm_event(
                 meta_exchange,
                 alive_peer_ids,
                 alive_gateway_ids,
-                sender,
+                to_app,
             );
         }
         SwarmEvent::Behaviour(MaroonEvent::Ping(PingEvent { .. })) => {
             // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
         }
         SwarmEvent::Behaviour(MaroonEvent::RequestResponse(gm_request_response)) => {
-            handle_request_response(swarm, &sender, gm_request_response);
+            handle_request_response(swarm, &to_app, gm_request_response);
+        }
+        SwarmEvent::Behaviour(MaroonEvent::M2MReqRes(m2m_request_response)) => {
+            handle_m2m_req_res(swarm, &to_app, m2m_request_response);
         }
         SwarmEvent::ConnectionEstablished { peer_id, .. } => {
             swarm
@@ -256,7 +302,7 @@ fn handle_swarm_event(
         SwarmEvent::ConnectionClosed { peer_id, .. } => {
             alive_gateway_ids.remove(&peer_id);
             if alive_peer_ids.remove(&peer_id) {
-                _ = sender.send(Inbox::Nodes(alive_peer_ids.clone()));
+                _ = to_app.send(Inbox::Nodes(alive_peer_ids.clone()));
             }
         }
         SwarmEvent::OutgoingConnectionError {
@@ -270,9 +316,41 @@ fn handle_swarm_event(
     }
 }
 
+fn handle_m2m_req_res(
+    swarm: &mut Swarm<MaroonBehaviour>,
+    to_app: &UnboundedSender<Inbox>,
+    m2m_request_response: M2MEvent,
+) {
+    let M2MEvent::Message { message, peer, .. } = m2m_request_response else {
+        return;
+    };
+
+    let RequestResponseMessage::Request {
+        request, channel, ..
+    } = message
+    else {
+        return;
+    };
+
+    match request {
+        M2MRequest::GetMissingTx(ranges) => to_app
+            .send(Inbox::RequestMissingTxs((peer, ranges)))
+            .expect("TODO: shouldnt panic?"),
+        M2MRequest::MissingTx(missing_txs) => to_app
+            .send(Inbox::MissingTx(missing_txs))
+            .expect("TODO: shouldnt panic?"),
+    }
+
+    let res = swarm
+        .behaviour_mut()
+        .m2m_req_res
+        .send_response(channel, M2MResponse::Ack);
+    debug!("Response sent: {:?}", res);
+}
+
 fn handle_request_response(
     swarm: &mut Swarm<MaroonBehaviour>,
-    tx_in: &UnboundedSender<Inbox>,
+    to_app: &UnboundedSender<Inbox>,
     gm_request_response: GMEvent,
 ) {
     match gm_request_response {
@@ -285,13 +363,13 @@ fn handle_request_response(
                 debug!("Request: {:?}, {:?}", request_id, request);
 
                 match request {
-                    Request::NewTransaction(tx) => {
-                        _ = tx_in.send(Inbox::NewTransaction(tx));
+                    GMRequest::NewTransaction(tx) => {
+                        _ = to_app.send(Inbox::NewTransaction(tx));
 
                         let res = swarm
                             .behaviour_mut()
                             .request_response
-                            .send_response(channel, Response::Acknowledged);
+                            .send_response(channel, GMResponse::Acknowledged);
                         debug!("Response sent: {:?}", res);
                     }
                 }
@@ -307,7 +385,7 @@ fn handle_meta_exchange(
     meta_exchange: MEEvent,
     alive_node_ids: &mut HashSet<PeerId>,
     alive_gateway_ids: &mut HashSet<PeerId>,
-    tx_in: &UnboundedSender<Inbox>,
+    to_app: &UnboundedSender<Inbox>,
 ) {
     let MEEvent::Message { message, peer, .. } = meta_exchange else {
         return;
@@ -319,7 +397,7 @@ fn handle_meta_exchange(
         }
         Role::Node => {
             alive_node_ids.insert(peer);
-            _ = tx_in.send(Inbox::Nodes(alive_node_ids.clone()));
+            _ = to_app.send(Inbox::Nodes(alive_node_ids.clone()));
         }
     };
 

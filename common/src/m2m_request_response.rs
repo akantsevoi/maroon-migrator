@@ -1,3 +1,4 @@
+use crate::range_key::TransactionID;
 use crate::transaction::Transaction;
 use libp2p::swarm::StreamProtocol;
 use libp2p_request_response::{
@@ -10,9 +11,12 @@ use std::fmt::Debug;
 pub type Event = RequestResponseEvent<Request, Response>;
 pub type Behaviour = json::Behaviour<Request, Response>;
 
-pub fn create_behaviour(protocol: ProtocolSupport) -> json::Behaviour<Request, Response> {
+pub fn create_behaviour() -> json::Behaviour<Request, Response> {
     json::Behaviour::<Request, Response>::new(
-        [(StreamProtocol::new("/maroon/request/1.0.0"), protocol)],
+        [(
+            StreamProtocol::new("/maroon/p2p_direct/1.0.0"),
+            ProtocolSupport::Full,
+        )],
         request_response::Config::default(),
     )
 }
@@ -20,11 +24,17 @@ pub fn create_behaviour(protocol: ProtocolSupport) -> json::Behaviour<Request, R
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "data")]
 pub enum Request {
-    NewTransaction(Transaction),
+    /// request missing transactions for given ranges
+    ///
+    /// TODO: there should be limit. If delay is too big - node should get them from s3
+    /// this one is only for small batch of txs
+    GetMissingTx(Vec<(TransactionID, TransactionID)>),
+
+    /// sends missing transactions
+    MissingTx(Vec<Transaction>),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Response {
-    Acknowledged,
-    Rejected,
+    Ack,
 }

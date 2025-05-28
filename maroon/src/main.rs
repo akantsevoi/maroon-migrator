@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (_shutdown_tx, shutdown_rx) = oneshot::channel();
 
-    let mut app = maroon::stack::create_stack(node_urls, self_url, Params::default())?;
+    let (mut app, _) = maroon::stack::create_stack(node_urls, self_url, Params::default())?;
     app.loop_until_shutdown(shutdown_rx).await;
 
     Ok(())

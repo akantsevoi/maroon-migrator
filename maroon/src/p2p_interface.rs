@@ -1,6 +1,6 @@
 use common::{
-    gm_request_response::Transaction,
-    range_key::{KeyOffset, KeyRange},
+    range_key::{KeyOffset, KeyRange, TransactionID},
+    transaction::Transaction,
 };
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
@@ -10,10 +10,13 @@ use std::{
 };
 
 /// Input for p2p layer from higher modules perspective
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(tag = "type", content = "data")]
 pub enum Outbox {
     State(NodeState),
+
+    RequestMissingTxs((PeerId, Vec<(TransactionID, TransactionID)>)),
+    RequestedTxsForPeer((PeerId, Vec<Transaction>)),
 }
 
 /// Input for the layer that lives on top of p2p layer. Output for p2p Layer
@@ -23,10 +26,13 @@ pub enum Inbox {
     State((PeerId, NodeState)),
     Nodes(HashSet<PeerId>),
     NewTransaction(Transaction),
+
+    RequestMissingTxs((PeerId, Vec<(TransactionID, TransactionID)>)),
+    MissingTx(Vec<Transaction>),
 }
 
 // Node state
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct NodeState {
     pub offsets: HashMap<KeyRange, KeyOffset>,
 }
