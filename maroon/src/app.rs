@@ -78,11 +78,12 @@ impl App {
 
   /// starts a loop that processes events and executes logic
   pub async fn loop_until_shutdown(&mut self, mut shutdown: oneshot::Receiver<()>) {
-    let mut ticker = tokio::time::interval(self.params.advertise_period);
+    let mut advertise_offset_ticker = tokio::time::interval(self.params.advertise_period);
+
     loop {
       tokio::select! {
-          _ = ticker.tick() => {
-              self.handle_on_tick();
+          _ = advertise_offset_ticker.tick() => {
+              self.advertise_offsets_and_request_missing();
           },
           Option::Some(req_wrapper) = self.state_interface.receiver.recv() => {
               self.handle_request(req_wrapper);
@@ -174,7 +175,7 @@ impl App {
     }
   }
 
-  fn handle_on_tick(&mut self) {
+  fn advertise_offsets_and_request_missing(&mut self) {
     self.recalculate_consensus_offsets();
     self.p2p_interface.send(Outbox::State(NodeState {
       offsets: self.self_offsets.clone(),
