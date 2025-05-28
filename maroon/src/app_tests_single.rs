@@ -17,9 +17,9 @@ use tokio::sync::oneshot;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn app_calculates_consensus_offset() {
-    let (ab_endpoint, ba_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
+    let (a2b_endpoint, b2a_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
     let (state_invoker, handler) = create_invoker_handler_pair();
-    let mut app = new_test_instance(ba_endpoint, handler);
+    let mut app = new_test_instance(b2a_endpoint, handler);
     let (_shutdown_tx, shutdown_rx) = oneshot::channel();
 
     let n1_peer_id = PeerId::random();
@@ -29,7 +29,7 @@ async fn app_calculates_consensus_offset() {
         app.loop_until_shutdown(shutdown_rx).await;
     });
 
-    ab_endpoint
+    a2b_endpoint
         .sender
         .send(Inbox::State((
             n1_peer_id,
@@ -42,7 +42,7 @@ async fn app_calculates_consensus_offset() {
             },
         )))
         .unwrap();
-    ab_endpoint
+    a2b_endpoint
         .sender
         .send(Inbox::State((
             n2_peer_id,
@@ -71,9 +71,9 @@ async fn app_calculates_consensus_offset() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn app_gets_missing_transaction() {
-    let (ab_endpoint, ba_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
+    let (a2b_endpoint, b2a_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
     let (state_invoker, handler) = create_invoker_handler_pair();
-    let mut app = new_test_instance(ba_endpoint, handler);
+    let mut app = new_test_instance(b2a_endpoint, handler);
     let (_shutdown_tx, shutdown_rx) = oneshot::channel();
 
     tokio::spawn(async move {
@@ -81,8 +81,8 @@ async fn app_gets_missing_transaction() {
     });
 
     // app gets some transaction from the future
-    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(5)));
-    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
+    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(5)));
+    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
 
     assert!(
         reaches_state(
@@ -98,7 +98,7 @@ async fn app_gets_missing_transaction() {
     );
 
     // and now app gets missing transaction
-    _ = ab_endpoint.sender.send(Inbox::MissingTx(vec![
+    _ = a2b_endpoint.sender.send(Inbox::MissingTx(vec![
         test_tx(3),
         test_tx(4),
         test_tx(2),
@@ -122,20 +122,20 @@ async fn app_gets_missing_transaction() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn app_gets_missing_transactions_that_smbd_else_requested() {
-    let (mut ab_endpoint, ba_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
+    let (mut a2b_endpoint, b2a_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
     let (state_invoker, handler) = create_invoker_handler_pair();
-    let mut app = new_test_instance(ba_endpoint, handler);
+    let mut app = new_test_instance(b2a_endpoint, handler);
     let (_shutdown_tx, shutdown_rx) = oneshot::channel();
 
     tokio::spawn(async move {
         app.loop_until_shutdown(shutdown_rx).await;
     });
 
-    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(2)));
-    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(3)));
-    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(1)));
-    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
-    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(4)));
+    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(2)));
+    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(3)));
+    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(1)));
+    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
+    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(4)));
 
     assert!(
         reaches_state(
@@ -151,7 +151,7 @@ async fn app_gets_missing_transactions_that_smbd_else_requested() {
     );
 
     let rnd_peer = PeerId::random();
-    ab_endpoint
+    a2b_endpoint
         .sender
         .send(Inbox::RequestMissingTxs((
             rnd_peer,
@@ -159,7 +159,7 @@ async fn app_gets_missing_transactions_that_smbd_else_requested() {
         )))
         .expect("channel shouldnt be dropped");
 
-    while let Some(outbox) = ab_endpoint.receiver.recv().await {
+    while let Some(outbox) = a2b_endpoint.receiver.recv().await {
         let Outbox::RequestedTxsForPeer((peer, requested_txs)) = outbox else {
             continue;
         };
@@ -172,17 +172,17 @@ async fn app_gets_missing_transactions_that_smbd_else_requested() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn app_detects_that_its_behind_and_makes_request() {
-    let (mut ab_endpoint, ba_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
+    let (mut a2b_endpoint, b2a_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
     let (state_invoker, handler) = create_invoker_handler_pair();
-    let mut app = new_test_instance(ba_endpoint, handler);
+    let mut app = new_test_instance(b2a_endpoint, handler);
     let (_shutdown_tx, shutdown_rx) = oneshot::channel();
 
     tokio::spawn(async move {
         app.loop_until_shutdown(shutdown_rx).await;
     });
 
-    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
-    _ = ab_endpoint.sender.send(Inbox::NewTransaction(test_tx(4)));
+    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
+    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(4)));
 
     assert!(
         reaches_state(
@@ -198,7 +198,7 @@ async fn app_detects_that_its_behind_and_makes_request() {
     );
 
     let rnd_peer = PeerId::random();
-    ab_endpoint
+    a2b_endpoint
         .sender
         .send(Inbox::State((
             rnd_peer,
@@ -208,7 +208,7 @@ async fn app_detects_that_its_behind_and_makes_request() {
         )))
         .expect("dont drop");
 
-    while let Some(outbox) = ab_endpoint.receiver.recv().await {
+    while let Some(outbox) = a2b_endpoint.receiver.recv().await {
         let Outbox::RequestMissingTxs((peer, requested_ranges)) = outbox else {
             continue;
         };

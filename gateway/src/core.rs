@@ -11,15 +11,15 @@ pub struct Gateway {
 
 impl Gateway {
     pub fn new(node_urls: Vec<String>) -> Result<Gateway, Box<dyn std::error::Error>> {
-        let (ab_endpoint, ba_endpoint) = create_a_b_duplex_pair::<Request, Response>();
+        let (a2b_endpoint, b2a_endpoint) = create_a_b_duplex_pair::<Request, Response>();
 
-        let mut p2p = P2P::new(node_urls, ba_endpoint)?;
+        let mut p2p = P2P::new(node_urls, b2a_endpoint)?;
         // TODO: prepare works in background and you can't start sending requests immediately when you created Gateway
         // I need to create some sort of state/flags or block the thread that can prevent sending requests before initialization even happened
         p2p.prepare().map_err(|e| format!("prepare: {}", e))?;
 
         Ok(Gateway {
-            p2p_channels: ab_endpoint,
+            p2p_channels: a2b_endpoint,
             p2p: Some(p2p),
         })
     }

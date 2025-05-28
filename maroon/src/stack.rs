@@ -11,9 +11,9 @@ pub fn create_stack(
     self_url: String,
     params: Params,
 ) -> Result<(App, InvokerInterface<Request, Response>), Box<dyn std::error::Error>> {
-    let (ab_endpoint, ba_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
+    let (a2b_endpoint, b2a_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
 
-    let mut p2p = P2P::new(node_urls, self_url, ab_endpoint)?;
+    let mut p2p = P2P::new(node_urls, self_url, a2b_endpoint)?;
     let my_id = p2p.peer_id;
 
     _ = p2p.prepare()?;
@@ -25,7 +25,7 @@ pub fn create_stack(
     let (state_invoker, state_handler) = create_invoker_handler_pair();
 
     Ok((
-        App::new(my_id, ba_endpoint, state_handler, params)?,
+        App::new(my_id, b2a_endpoint, state_handler, params)?,
         state_invoker,
     ))
 }
