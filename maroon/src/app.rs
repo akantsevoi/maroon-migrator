@@ -5,11 +5,15 @@ use crate::{
 use common::{
   duplex_channel::Endpoint,
   invoker_handler::{HandlerInterface, RequestWrapper},
-  range_key::{self, KeyOffset, KeyRange, TransactionID, key_from_range_and_offset},
+  range_key::{
+    self, KeyOffset, KeyRange, TransactionID, key_from_range_and_offset, range_offset_from_key,
+  },
   transaction::Transaction,
 };
+use derive_more::Display;
 use libp2p::PeerId;
 use log::{error, info};
+use sha2::{Digest, Sha256};
 use std::{
   collections::{HashMap, HashSet},
   num::NonZeroUsize,
@@ -94,8 +98,32 @@ pub struct App {
   transactions: HashMap<TransactionID, Transaction>,
 }
 
+#[derive(Debug, Clone, Display)]
+#[display("Epoch {{ increments: {:?}, hash: 0x{:X} }}", increments, hash.iter().fold(0u128, |acc, &x| (acc << 8) | x as u128))]
 struct Epoch {
   increments: Vec<(TransactionID, TransactionID)>,
+  hash: [u8; 32],
+}
+
+impl Epoch {
+  fn new(increments: Vec<(TransactionID, TransactionID)>, prev_hash: Option<[u8; 32]>) -> Epoch {
+    let mut hasher = Sha256::new();
+
+    // Include previous hash if it exists
+    if let Some(prev) = prev_hash {
+      hasher.update(&prev);
+    }
+
+    // Include current epoch data
+    for (start, end) in &increments {
+      hasher.update(start.0.to_le_bytes());
+      hasher.update(end.0.to_le_bytes());
+    }
+
+    let hash = hasher.finalize().into();
+
+    Epoch { increments, hash }
+  }
 }
 
 impl App {
@@ -258,8 +286,26 @@ impl App {
     }
   }
 
-  fn commit_epoch_if_needed(&self) {
-    // self.consensus_offset
+  fn commit_epoch_if_needed(&mut self) {
+    let increments = calculate_epoch_increments(&self.consensus_offset, &self.commited_offsets);
+
+    let prev_hash = self.epochs.last().map(|e| e.hash);
+    let new_epoch = Epoch::new(increments, prev_hash);
+    info!("NEW EPOCH: {}", &new_epoch);
+
+    {
+      // TODO: in the future the code below won't exist
+      // it won't be pushed here immediately into the local variables, it will be pushed to etcd
+      // and if there is a success it will be returned back to the node and added to epochs
+      // maybe there will be some "optimistic" epochs chain for some form of optimisations, I don't know, let's see
+      // maybe all these local variables wouldn't make any sense
+
+      for (_, finish) in &new_epoch.increments {
+        let (range, new_offset) = range_offset_from_key(*finish);
+        self.commited_offsets.insert(range, new_offset);
+      }
+      self.epochs.push(new_epoch);
+    }
   }
 }
 
