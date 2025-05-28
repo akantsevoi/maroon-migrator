@@ -25,6 +25,7 @@ run-local:
 	NODE_URLS=/ip4/127.0.0.1/tcp/3000,/ip4/127.0.0.1/tcp/3001,/ip4/127.0.0.1/tcp/3002 \
 	SELF_URL=/ip4/127.0.0.1/tcp/${PORT} \
 	RUST_LOG=debug \
+	CONSENSUS_NODES=2 \
 		cargo run -p maroon
 
 test:

@@ -211,7 +211,7 @@ fn handle_receiver_outbox(
         .gossipsub
         .publish(node_p2p_topic, bytes)
       {
-        warn!("publish error: {}", e);
+        warn!("gossip broadcast error: {}", e);
       }
     }
     Outbox::RequestMissingTxs((peer_id, ranges)) => {
