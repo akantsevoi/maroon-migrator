@@ -82,7 +82,20 @@ pub struct App {
   /// what to do if some nodes are gone and new nodes don't have all the offsets yet? - download from s3
   consensus_offset: HashMap<KeyRange, KeyOffset>,
 
+  /// describes which offsets have been already commited and => where the current epoch starts
+  /// can be recalculated from `epochs`
+  commited_offsets: HashMap<KeyRange, KeyOffset>,
+
+  /// TODO: at some point it will be pointless to store all the epochs in the variable on the node, keep that in mind
+  /// all epochs
+  /// it's what will be stored on etcd & s3
+  epochs: Vec<Epoch>,
+
   transactions: HashMap<TransactionID, Transaction>,
+}
+
+struct Epoch {
+  increments: Vec<(TransactionID, TransactionID)>,
 }
 
 impl App {
@@ -100,6 +113,8 @@ impl App {
       offsets: HashMap::new(),
       self_offsets: HashMap::new(),
       consensus_offset: HashMap::new(),
+      commited_offsets: HashMap::new(),
+      epochs: Vec::new(),
       transactions: HashMap::new(),
     })
   }
