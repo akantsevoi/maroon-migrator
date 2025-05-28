@@ -4,16 +4,16 @@ use std::fmt::Debug;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Transaction {
-    pub id: TransactionID,
-    pub status: TxStatus,
+  pub id: TransactionID,
+  pub status: TxStatus,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(tag = "type", content = "data")]
 pub enum TxStatus {
-    Created,
-    Pending,
-    Confirmed,
-    Finished,
-    Rejected,
+  Created,
+  Pending,
+  Confirmed,
+  Finished,
+  Rejected,
 }
