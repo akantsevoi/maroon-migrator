@@ -81,8 +81,8 @@ async fn app_gets_missing_transaction() {
     });
 
     // app gets some transaction from the future
-    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(5)));
-    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
+    a2b_endpoint.send(Inbox::NewTransaction(test_tx(5)));
+    a2b_endpoint.send(Inbox::NewTransaction(test_tx(0)));
 
     assert!(
         reaches_state(
@@ -98,7 +98,7 @@ async fn app_gets_missing_transaction() {
     );
 
     // and now app gets missing transaction
-    _ = a2b_endpoint.sender.send(Inbox::MissingTx(vec![
+    a2b_endpoint.send(Inbox::MissingTx(vec![
         test_tx(3),
         test_tx(4),
         test_tx(2),
@@ -131,11 +131,11 @@ async fn app_gets_missing_transactions_that_smbd_else_requested() {
         app.loop_until_shutdown(shutdown_rx).await;
     });
 
-    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(2)));
-    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(3)));
-    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(1)));
-    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
-    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(4)));
+    a2b_endpoint.send(Inbox::NewTransaction(test_tx(2)));
+    a2b_endpoint.send(Inbox::NewTransaction(test_tx(3)));
+    a2b_endpoint.send(Inbox::NewTransaction(test_tx(1)));
+    a2b_endpoint.send(Inbox::NewTransaction(test_tx(0)));
+    a2b_endpoint.send(Inbox::NewTransaction(test_tx(4)));
 
     assert!(
         reaches_state(
@@ -181,8 +181,8 @@ async fn app_detects_that_its_behind_and_makes_request() {
         app.loop_until_shutdown(shutdown_rx).await;
     });
 
-    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(0)));
-    _ = a2b_endpoint.sender.send(Inbox::NewTransaction(test_tx(4)));
+    a2b_endpoint.send(Inbox::NewTransaction(test_tx(0)));
+    a2b_endpoint.send(Inbox::NewTransaction(test_tx(4)));
 
     assert!(
         reaches_state(

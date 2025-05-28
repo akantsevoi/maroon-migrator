@@ -36,7 +36,7 @@ impl Gateway {
         &mut self,
         request: Request,
     ) -> Result<MEResponse, Box<dyn std::error::Error>> {
-        self.p2p_channels.sender.send(request)?;
+        self.p2p_channels.send(request);
 
         // TODO: that one doesn't work correctly. I need to listen to a related rx_response to get the right info
         return Ok(MEResponse { role: Role::Node });

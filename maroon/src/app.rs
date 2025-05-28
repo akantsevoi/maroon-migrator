@@ -175,11 +175,9 @@ impl App {
 
     fn handle_on_tick(&mut self) {
         self.recalculate_consensus_offsets();
-        if let Err(e) = self.p2p_interface.sender.send(Outbox::State(NodeState {
+        self.p2p_interface.send(Outbox::State(NodeState {
             offsets: self.self_offsets.clone(),
-        })) {
-            error!("main send: {e}");
-        };
+        }));
 
         let delays = self_delays(&self.transactions, &self.self_offsets, &self.offsets);
         if delays.len() == 0 {
