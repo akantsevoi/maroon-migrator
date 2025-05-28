@@ -37,6 +37,16 @@ impl Params {
       consensus_nodes: NonZeroUsize::new(2).unwrap(),
     }
   }
+
+  pub fn set_advertise_period(mut self, new_period: Duration) -> Params {
+    self.advertise_period = new_period;
+    self
+  }
+
+  pub fn set_consensus_nodes(mut self, n_consensus: NonZeroUsize) -> Params {
+    self.consensus_nodes = n_consensus;
+    self
+  }
 }
 
 pub struct App {

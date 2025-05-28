@@ -26,10 +26,7 @@ async fn basic() {
   let (_shutdown_tx_1, shutdown_rx_1) = oneshot::channel();
   let (_shutdown_tx_2, shutdown_rx_2) = oneshot::channel();
 
-  let params = Params {
-    advertise_period: Duration::from_millis(500),
-    consensus_nodes: NonZeroUsize::new(2).unwrap(),
-  };
+  let params = Params::default().set_advertise_period(Duration::from_millis(500));
 
   // create nodes and gateway
 
