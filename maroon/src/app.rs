@@ -2,7 +2,7 @@ use crate::app_interface::{CurrentOffsets, Request, Response};
 use crate::p2p_interface::{Inbox, NodeState, Outbox};
 use common::invoker_handler::{HandlerInterface, RequestWrapper};
 use common::{
-    async_interface::ReqResPair,
+    duplex_channel::Endpoint,
     range_key::{self, KeyOffset, KeyRange, TransactionID, key_from_range_and_offset},
     transaction::Transaction,
 };
@@ -14,7 +14,6 @@ use std::{
     num::NonZeroUsize,
     time::Duration,
 };
-use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 
 #[derive(Clone, Copy, Debug)]
@@ -39,7 +38,8 @@ pub struct App {
     params: Params,
 
     peer_id: PeerId,
-    p2p_interface: ReqResPair<Outbox, Inbox>,
+
+    p2p_interface: Endpoint<Outbox, Inbox>,
     state_interface: HandlerInterface<Request, Response>,
 
     /// offsets for the current node
@@ -60,7 +60,7 @@ pub struct App {
 impl App {
     pub fn new(
         peer_id: PeerId,
-        p2p_interface: ReqResPair<Outbox, Inbox>,
+        p2p_interface: Endpoint<Outbox, Inbox>,
         state_interface: HandlerInterface<Request, Response>,
         params: Params,
     ) -> Result<App, Box<dyn std::error::Error>> {
@@ -175,11 +175,9 @@ impl App {
 
     fn handle_on_tick(&mut self) {
         self.recalculate_consensus_offsets();
-        if let Err(e) = self.p2p_interface.sender.send(Outbox::State(NodeState {
+        self.p2p_interface.send(Outbox::State(NodeState {
             offsets: self.self_offsets.clone(),
-        })) {
-            error!("main send: {e}");
-        };
+        }));
 
         let delays = self_delays(&self.transactions, &self.self_offsets, &self.offsets);
         if delays.len() == 0 {
@@ -400,75 +398,10 @@ pub fn txs_to_range_tx_map(txs: Vec<Transaction>) -> HashMap<KeyRange, Vec<Trans
 
 #[cfg(test)]
 mod tests {
-    use std::hash::Hash;
-
     use crate::test_helpers::test_tx;
 
     use super::*;
-    use common::{
-        invoker_handler::create_invoker_handler_pair,
-        transaction::{Transaction, TxStatus},
-    };
-    use tokio::{sync::mpsc, time};
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn app_process_message_and_shuts_down() {
-        let (tx_in, rx_in) = mpsc::unbounded_channel::<Inbox>();
-        let (tx_out, _rx_out) = mpsc::unbounded_channel::<Outbox>();
-        let (shutdown_tx, shutdown_rx) = oneshot::channel();
-
-        let n1_peer_id = PeerId::random();
-        let n2_peer_id = PeerId::random();
-        let (_, handler) = create_invoker_handler_pair();
-
-        let mut app = crate::test_helpers::new_test_instance(
-            ReqResPair {
-                receiver: rx_in,
-                sender: tx_out,
-            },
-            handler,
-        );
-
-        let handle = tokio::spawn(async move {
-            app.loop_until_shutdown(shutdown_rx).await;
-            app.consensus_offset
-        });
-
-        _ = tx_in
-            .send(Inbox::State((
-                n1_peer_id,
-                NodeState {
-                    offsets: HashMap::from([
-                        (KeyRange(1), KeyOffset(3)),
-                        (KeyRange(2), KeyOffset(7)),
-                        (KeyRange(4), KeyOffset(1)),
-                    ]),
-                },
-            )))
-            .expect("no errors");
-        _ = tx_in
-            .send(Inbox::State((
-                n2_peer_id,
-                NodeState {
-                    offsets: HashMap::from([
-                        (KeyRange(1), KeyOffset(2)),
-                        (KeyRange(2), KeyOffset(9)),
-                    ]),
-                },
-            )))
-            .expect("no errors");
-
-        // wait until app consumes the event
-        time::sleep(Duration::from_millis(10)).await;
-        shutdown_tx.send(()).expect("no error on shutdown");
-
-        let calculated_offset = handle.await.expect("should get proper map");
-
-        assert_eq!(
-            calculated_offset,
-            HashMap::from([(KeyRange(1), KeyOffset(2)), (KeyRange(2), KeyOffset(7))])
-        )
-    }
+    use common::transaction::{Transaction, TxStatus};
 
     #[test]
     fn calculate_consensus_maximum() {

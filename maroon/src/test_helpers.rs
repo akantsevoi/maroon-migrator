@@ -6,7 +6,7 @@ use crate::p2p_interface::{Inbox, Outbox};
 use common::invoker_handler::HandlerInterface;
 use common::invoker_handler::InvokerInterface;
 use common::{
-    async_interface::ReqResPair,
+    duplex_channel::Endpoint,
     range_key::TransactionID,
     transaction::{Transaction, TxStatus},
 };
@@ -15,7 +15,7 @@ use std::time::Duration;
 
 #[cfg(test)]
 pub fn new_test_instance(
-    p2p_interface: ReqResPair<Outbox, Inbox>,
+    p2p_interface: Endpoint<Outbox, Inbox>,
     state_interface: HandlerInterface<AppStateRequest, AppStateResponse>,
 ) -> App {
     App::new(

@@ -1,5 +1,5 @@
 use common::{
-    async_interface::{AsyncInterface, ReqResPair},
+    duplex_channel::Endpoint,
     gm_request_response::{self, Behaviour as GMBehaviour, Event as GMEvent, Request, Response},
     meta_exchange::{
         self, Behaviour as MetaExchangeBehaviour, Event as MEEvent, Response as MEResponse, Role,
@@ -39,16 +39,18 @@ pub enum GatewayEvent {
 }
 
 pub struct P2P {
-    pub peer_id: PeerId,
-
     node_urls: Vec<String>,
 
     swarm: Swarm<GatewayBehaviour>,
-    channels: AsyncInterface<Request, Response>,
+
+    interface_endpoint: Endpoint<Response, Request>,
 }
 
 impl P2P {
-    pub fn new(node_urls: Vec<String>) -> Result<P2P, Box<dyn std::error::Error>> {
+    pub fn new(
+        node_urls: Vec<String>,
+        interface_endpoint: Endpoint<Response, Request>,
+    ) -> Result<P2P, Box<dyn std::error::Error>> {
         let kp = identity::Keypair::generate_ed25519();
         let peer_id = PeerId::from(kp.public());
         info!("Local peer id: {:?}", peer_id);
@@ -82,9 +84,8 @@ impl P2P {
 
         Ok(P2P {
             node_urls,
-            peer_id,
             swarm,
-            channels: AsyncInterface::new(),
+            interface_endpoint,
         })
     }
 
@@ -101,23 +102,15 @@ impl P2P {
         Ok(())
     }
 
-    // Gets p2p channels that will be used for communication
-    // can be called only once
-    pub fn interface_channels(&mut self) -> ReqResPair<Request, Response> {
-        self.channels.requester()
-    }
-
     /// blocking operation, so you might want to spawn it on a separate thread
     /// after calling this - channels at `interface_channels` will start to send messages
     /// TODO: add stop/finish channel
-    pub async fn start_event_loop(mut self) {
+    pub async fn start_event_loop(self) {
         let mut maroon_peer_ids = HashSet::<PeerId>::new();
         let mut swarm = self.swarm;
 
-        let requester_channels = self.channels.responder();
-
-        let mut receiver = requester_channels.receiver;
-        let sender = requester_channels.sender;
+        let mut receiver = self.interface_endpoint.receiver;
+        let sender = self.interface_endpoint.sender;
         loop {
             tokio::select! {
                 Some(request) = receiver.recv() => {
@@ -185,9 +178,9 @@ fn handle_swarm_event(
                 _ => {}
             }
         }
-        // SwarmEvent::Behaviour(GatewayEvent::Ping(PingEvent { .. })) =>{
-        //     // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
-        // },
+        SwarmEvent::Behaviour(GatewayEvent::Ping(PingEvent { .. })) => {
+            // TODO: have an idea to use result.duration for calculating logical time between nodes. let's see
+        }
         SwarmEvent::ConnectionEstablished { peer_id, .. } => {
             maroon_peer_ids.insert(peer_id);
             debug!("connected to {}", peer_id);
