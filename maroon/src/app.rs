@@ -131,6 +131,7 @@ impl App {
             self.advertise_offsets_and_request_missing();
           },
           _ = commit_epoch_ticker.tick() => {
+            self.commit_epoch_if_needed();
           },
           Option::Some(req_wrapper) = self.state_interface.receiver.recv() => {
             self.handle_request(req_wrapper);
@@ -256,6 +257,34 @@ impl App {
       }
     }
   }
+
+  fn commit_epoch_if_needed(&self) {
+    // self.consensus_offset
+  }
+}
+
+fn calculate_epoch_increments(
+  consensus_offset: &HashMap<KeyRange, KeyOffset>,
+  commited_offsets: &HashMap<KeyRange, KeyOffset>,
+) -> Vec<(TransactionID, TransactionID)> {
+  let mut increments = Vec::new();
+  for (range, offset) in consensus_offset {
+    let mut start = KeyOffset(0);
+    if let Some(prev) = commited_offsets.get(&range) {
+      start = *prev + KeyOffset(1);
+    }
+
+    if start >= *offset {
+      continue;
+    }
+
+    increments.push((
+      key_from_range_and_offset(*range, start),
+      key_from_range_and_offset(*range, *offset),
+    ));
+  }
+
+  increments
 }
 
 /// moves offset pointer for a particular peerID(node)
@@ -840,6 +869,64 @@ mod tests {
         v.sort_by_key(|pair| pair.0);
       }
       assert_eq!(case.expected_ranges, ranges, "{}", case.label);
+    }
+  }
+
+  #[test]
+  fn test_calculate_epoch_increments() {
+    struct Case<'a> {
+      label: &'a str,
+      consensus_offset: HashMap<KeyRange, KeyOffset>,
+      commited_offsets: HashMap<KeyRange, KeyOffset>,
+      expected_increments: Vec<(TransactionID, TransactionID)>,
+    }
+
+    for case in vec![
+      Case {
+        label: "empty everything",
+        consensus_offset: HashMap::new(),
+        commited_offsets: HashMap::new(),
+        expected_increments: vec![],
+      },
+      Case {
+        label: "nothing commited before",
+        consensus_offset: [(KeyRange(0), KeyOffset(2))].into(),
+        commited_offsets: [].into(),
+        expected_increments: vec![(TransactionID(0), TransactionID(2))],
+      },
+      Case {
+        label: "no progress",
+        consensus_offset: [(KeyRange(0), KeyOffset(2))].into(),
+        commited_offsets: [(KeyRange(0), KeyOffset(2))].into(),
+        expected_increments: vec![],
+      },
+      Case {
+        label: "consensus delayed by any reasons",
+        consensus_offset: [(KeyRange(0), KeyOffset(1))].into(),
+        commited_offsets: [(KeyRange(0), KeyOffset(2))].into(),
+        expected_increments: vec![],
+      },
+      Case {
+        label: "progress in some",
+        consensus_offset: [
+          (KeyRange(0), KeyOffset(10)),
+          (KeyRange(1), KeyOffset(2)),
+          (KeyRange(2), KeyOffset(6)),
+        ]
+        .into(),
+        commited_offsets: [
+          (KeyRange(0), KeyOffset(6)),
+          (KeyRange(1), KeyOffset(2)),
+          (KeyRange(2), KeyOffset(8)),
+        ]
+        .into(),
+        expected_increments: vec![(TransactionID(7), TransactionID(10))],
+      },
+    ] {
+      let mut increments =
+        calculate_epoch_increments(&case.consensus_offset, &case.commited_offsets);
+      increments.sort_by_key(|pair| pair.0);
+      assert_eq!(case.expected_increments, increments, "{}", case.label);
     }
   }
 }
