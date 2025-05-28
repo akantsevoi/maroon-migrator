@@ -4,16 +4,16 @@ use std::collections::HashMap;
 
 #[derive(Display)]
 pub enum Request {
-    GetState,
+  GetState,
 }
 #[derive(Debug, PartialEq, Eq, Display)]
 pub enum Response {
-    State(CurrentOffsets),
+  State(CurrentOffsets),
 }
 
 #[derive(Debug, PartialEq, Eq, Display)]
 #[display("CurrentOffsets(self_offsets: {self_offsets:?}, consensus_offset: {consensus_offset:?})")]
 pub struct CurrentOffsets {
-    pub self_offsets: HashMap<KeyRange, KeyOffset>,
-    pub consensus_offset: HashMap<KeyRange, KeyOffset>,
+  pub self_offsets: HashMap<KeyRange, KeyOffset>,
+  pub consensus_offset: HashMap<KeyRange, KeyOffset>,
 }
