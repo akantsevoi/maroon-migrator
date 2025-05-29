@@ -1,6 +1,8 @@
 ETCD_ENDPOINTS := http://localhost:2379,http://localhost:2381,http://localhost:2383
 PORT ?= 3000
 PROFILE ?= debug
+NODE_URLS ?= /ip4/127.0.0.1/tcp/3000,/ip4/127.0.0.1/tcp/3001,/ip4/127.0.0.1/tcp/3002
+KEY_RANGE ?= 0
 
 ifeq ($(PROFILE),release)
     PROFILE_FLAG := --release
@@ -26,7 +28,13 @@ run-local:
 	SELF_URL=/ip4/127.0.0.1/tcp/${PORT} \
 	RUST_LOG=debug \
 	CONSENSUS_NODES=2 \
-		cargo run -p maroon
+		cargo run -p maroon $(PROFILE_FLAG)
+
+run-gateway:
+	KEY_RANGE=${KEY_RANGE} \
+	NODE_URLS=${NODE_URLS} \
+	RUST_LOG=info \
+		cargo run -p gateway $(PROFILE_FLAG)
 
 test:
 	cargo test --workspace --exclude integration $(PROFILE_FLAG)
