@@ -1,4 +1,5 @@
 use maroon::app::Params;
+use std::num::NonZeroUsize;
 use std::time::Duration;
 use tokio::sync::oneshot;
 
@@ -22,9 +23,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       .unwrap(),
   );
 
+  let consensus_nodes = std::env::var("CONSENSUS_NODES")
+    .unwrap_or_else(|_| "2".to_string())
+    .parse::<usize>()
+    .map(NonZeroUsize::new)
+    .unwrap()
+    .unwrap();
+
+  let params = Params::default().set_consensus_nodes(consensus_nodes);
+
   let (_shutdown_tx, shutdown_rx) = oneshot::channel();
 
-  let (mut app, _) = maroon::stack::create_stack(node_urls, self_url, Params::default())?;
+  let (mut app, _) = maroon::stack::create_stack(node_urls, self_url, params)?;
   app.loop_until_shutdown(shutdown_rx).await;
 
   Ok(())

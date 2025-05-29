@@ -41,6 +41,7 @@ pub struct KeyOffset(pub u64);
   Add,
   AddAssign,
   Sub,
+  Display,
 )]
 pub struct TransactionID(pub u64);
 

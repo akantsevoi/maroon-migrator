@@ -1,20 +1,29 @@
-use crate::app_interface::{CurrentOffsets, Request, Response};
-use crate::p2p_interface::{Inbox, NodeState, Outbox};
-use common::invoker_handler::{HandlerInterface, RequestWrapper};
+use crate::{
+  app_interface::{CurrentOffsets, Request, Response},
+  p2p_interface::{Inbox, NodeState, Outbox},
+};
 use common::{
   duplex_channel::Endpoint,
-  range_key::{self, KeyOffset, KeyRange, TransactionID, key_from_range_and_offset},
+  invoker_handler::{HandlerInterface, RequestWrapper},
+  range_key::{
+    self, KeyOffset, KeyRange, TransactionID, key_from_range_and_offset, range_offset_from_key,
+  },
   transaction::Transaction,
 };
+use derive_more::Display;
 use libp2p::PeerId;
 use log::{error, info};
-use std::vec;
+use sha2::{Digest, Sha256};
 use std::{
   collections::{HashMap, HashSet},
   num::NonZeroUsize,
   time::Duration,
+  vec,
 };
-use tokio::sync::oneshot;
+use tokio::{
+  sync::oneshot,
+  time::{MissedTickBehavior, interval},
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Params {
@@ -23,6 +32,13 @@ pub struct Params {
   /// minimum amount of nodes that should have the same transactions(+ current one) in order to confirm them
   /// TODO: separate pub struct ConsensusAlgoParams in a separate lib/consensus crate with its own test suite?
   pub consensus_nodes: NonZeroUsize,
+
+  /// TODO: it will be logical time in the future
+  ///
+  /// periods between epochs <br>
+  /// this parameter only says **when** you should start a new epoch <br>
+  /// however due to multiple reasons a new epoch might not start after this period
+  pub epoch_period: std::time::Duration,
 }
 
 impl Params {
@@ -30,7 +46,23 @@ impl Params {
     Params {
       advertise_period: Duration::from_secs(5),
       consensus_nodes: NonZeroUsize::new(2).unwrap(),
+      epoch_period: Duration::from_secs(10),
     }
+  }
+
+  pub fn set_advertise_period(mut self, new_period: Duration) -> Params {
+    self.advertise_period = new_period;
+    self
+  }
+
+  pub fn set_consensus_nodes(mut self, n_consensus: NonZeroUsize) -> Params {
+    self.consensus_nodes = n_consensus;
+    self
+  }
+
+  pub fn set_epoch_period(mut self, new_period: Duration) -> Params {
+    self.epoch_period = new_period;
+    self
   }
 }
 
@@ -54,7 +86,44 @@ pub struct App {
   /// what to do if some nodes are gone and new nodes don't have all the offsets yet? - download from s3
   consensus_offset: HashMap<KeyRange, KeyOffset>,
 
+  /// describes which offsets have been already commited and => where the current epoch starts
+  /// can be recalculated from `epochs`
+  commited_offsets: HashMap<KeyRange, KeyOffset>,
+
+  /// TODO: at some point it will be pointless to store all the epochs in the variable on the node, keep that in mind
+  /// all epochs
+  /// it's what will be stored on etcd & s3
+  epochs: Vec<Epoch>,
+
   transactions: HashMap<TransactionID, Transaction>,
+}
+
+#[derive(Debug, Clone, Display)]
+#[display("Epoch {{ increments: {:?}, hash: 0x{:X} }}", increments, hash.iter().fold(0u128, |acc, &x| (acc << 8) | x as u128))]
+struct Epoch {
+  increments: Vec<(TransactionID, TransactionID)>,
+  hash: [u8; 32],
+}
+
+impl Epoch {
+  fn new(increments: Vec<(TransactionID, TransactionID)>, prev_hash: Option<[u8; 32]>) -> Epoch {
+    let mut hasher = Sha256::new();
+
+    // Include previous hash if it exists
+    if let Some(prev) = prev_hash {
+      hasher.update(&prev);
+    }
+
+    // Include current epoch data
+    for (start, end) in &increments {
+      hasher.update(start.0.to_le_bytes());
+      hasher.update(end.0.to_le_bytes());
+    }
+
+    let hash = hasher.finalize().into();
+
+    Epoch { increments, hash }
+  }
 }
 
 impl App {
@@ -72,27 +141,35 @@ impl App {
       offsets: HashMap::new(),
       self_offsets: HashMap::new(),
       consensus_offset: HashMap::new(),
+      commited_offsets: HashMap::new(),
+      epochs: Vec::new(),
       transactions: HashMap::new(),
     })
   }
 
   /// starts a loop that processes events and executes logic
   pub async fn loop_until_shutdown(&mut self, mut shutdown: oneshot::Receiver<()>) {
-    let mut ticker = tokio::time::interval(self.params.advertise_period);
+    let mut advertise_offset_ticker = interval(self.params.advertise_period);
+    advertise_offset_ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    let mut commit_epoch_ticker = interval(self.params.epoch_period);
+
     loop {
       tokio::select! {
-          _ = ticker.tick() => {
-              self.handle_on_tick();
+          _ = advertise_offset_ticker.tick() => {
+            self.advertise_offsets_and_request_missing();
+          },
+          _ = commit_epoch_ticker.tick() => {
+            self.commit_epoch_if_needed();
           },
           Option::Some(req_wrapper) = self.state_interface.receiver.recv() => {
-              self.handle_request(req_wrapper);
+            self.handle_request(req_wrapper);
           },
           Some(payload) = self.p2p_interface.receiver.recv() => {
-              self.handle_inbox_message(payload);
+            self.handle_inbox_message(payload);
           },
           _ = &mut shutdown =>{
-              info!("TODO: shutdown the app");
-              break;
+            info!("TODO: shutdown the app");
+            break;
           }
       }
     }
@@ -174,7 +251,7 @@ impl App {
     }
   }
 
-  fn handle_on_tick(&mut self) {
+  fn advertise_offsets_and_request_missing(&mut self) {
     self.recalculate_consensus_offsets();
     self.p2p_interface.send(Outbox::State(NodeState {
       offsets: self.self_offsets.clone(),
@@ -208,6 +285,52 @@ impl App {
       }
     }
   }
+
+  fn commit_epoch_if_needed(&mut self) {
+    let increments = calculate_epoch_increments(&self.consensus_offset, &self.commited_offsets);
+
+    let prev_hash = self.epochs.last().map(|e| e.hash);
+    let new_epoch = Epoch::new(increments, prev_hash);
+    info!("NEW EPOCH: {}", &new_epoch);
+
+    {
+      // TODO: in the future the code below won't exist
+      // it won't be pushed here immediately into the local variables, it will be pushed to etcd
+      // and if there is a success it will be returned back to the node and added to epochs
+      // maybe there will be some "optimistic" epochs chain for some form of optimisations, I don't know, let's see
+      // maybe all these local variables wouldn't make any sense
+
+      for (_, finish) in &new_epoch.increments {
+        let (range, new_offset) = range_offset_from_key(*finish);
+        self.commited_offsets.insert(range, new_offset);
+      }
+      self.epochs.push(new_epoch);
+    }
+  }
+}
+
+fn calculate_epoch_increments(
+  consensus_offset: &HashMap<KeyRange, KeyOffset>,
+  commited_offsets: &HashMap<KeyRange, KeyOffset>,
+) -> Vec<(TransactionID, TransactionID)> {
+  let mut increments = Vec::new();
+  for (range, offset) in consensus_offset {
+    let mut start = KeyOffset(0);
+    if let Some(prev) = commited_offsets.get(&range) {
+      start = *prev + KeyOffset(1);
+    }
+
+    if start >= *offset {
+      continue;
+    }
+
+    increments.push((
+      key_from_range_and_offset(*range, start),
+      key_from_range_and_offset(*range, *offset),
+    ));
+  }
+
+  increments
 }
 
 /// moves offset pointer for a particular peerID(node)
@@ -792,6 +915,64 @@ mod tests {
         v.sort_by_key(|pair| pair.0);
       }
       assert_eq!(case.expected_ranges, ranges, "{}", case.label);
+    }
+  }
+
+  #[test]
+  fn test_calculate_epoch_increments() {
+    struct Case<'a> {
+      label: &'a str,
+      consensus_offset: HashMap<KeyRange, KeyOffset>,
+      commited_offsets: HashMap<KeyRange, KeyOffset>,
+      expected_increments: Vec<(TransactionID, TransactionID)>,
+    }
+
+    for case in vec![
+      Case {
+        label: "empty everything",
+        consensus_offset: HashMap::new(),
+        commited_offsets: HashMap::new(),
+        expected_increments: vec![],
+      },
+      Case {
+        label: "nothing commited before",
+        consensus_offset: [(KeyRange(0), KeyOffset(2))].into(),
+        commited_offsets: [].into(),
+        expected_increments: vec![(TransactionID(0), TransactionID(2))],
+      },
+      Case {
+        label: "no progress",
+        consensus_offset: [(KeyRange(0), KeyOffset(2))].into(),
+        commited_offsets: [(KeyRange(0), KeyOffset(2))].into(),
+        expected_increments: vec![],
+      },
+      Case {
+        label: "consensus delayed by any reasons",
+        consensus_offset: [(KeyRange(0), KeyOffset(1))].into(),
+        commited_offsets: [(KeyRange(0), KeyOffset(2))].into(),
+        expected_increments: vec![],
+      },
+      Case {
+        label: "progress in some",
+        consensus_offset: [
+          (KeyRange(0), KeyOffset(10)),
+          (KeyRange(1), KeyOffset(2)),
+          (KeyRange(2), KeyOffset(6)),
+        ]
+        .into(),
+        commited_offsets: [
+          (KeyRange(0), KeyOffset(6)),
+          (KeyRange(1), KeyOffset(2)),
+          (KeyRange(2), KeyOffset(8)),
+        ]
+        .into(),
+        expected_increments: vec![(TransactionID(7), TransactionID(10))],
+      },
+    ] {
+      let mut increments =
+        calculate_epoch_increments(&case.consensus_offset, &case.commited_offsets);
+      increments.sort_by_key(|pair| pair.0);
+      assert_eq!(case.expected_increments, increments, "{}", case.label);
     }
   }
 }
