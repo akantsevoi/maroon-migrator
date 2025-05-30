@@ -32,46 +32,70 @@ impl Linearizer for LogLineriazer {
   }
 }
 
-#[test]
-fn test_linear() {
+#[cfg(test)]
+mod tests {
+  use super::*;
   use common::range_key::{
     KeyOffset, KeyRange, U64BlobIdClosedInterval, unique_blob_id_from_range_and_offset,
   };
 
-  let mut linearizer = LogLineriazer::new();
+  #[test]
+  fn test_linear() {
+    let mut linearizer = LogLineriazer::new();
 
-  linearizer.new_epoch(Epoch::new(
-    vec![
-      U64BlobIdClosedInterval::new_from_range_and_offsets(KeyRange(3), KeyOffset(0), KeyOffset(0)),
-      U64BlobIdClosedInterval::new_from_range_and_offsets(KeyRange(0), KeyOffset(0), KeyOffset(2)),
-      U64BlobIdClosedInterval::new_from_range_and_offsets(KeyRange(1), KeyOffset(0), KeyOffset(3)),
-    ],
-    None,
-  ));
-  linearizer.new_epoch(Epoch::new(
-    vec![
-      U64BlobIdClosedInterval::new_from_range_and_offsets(KeyRange(4), KeyOffset(0), KeyOffset(1)),
-      U64BlobIdClosedInterval::new_from_range_and_offsets(KeyRange(0), KeyOffset(3), KeyOffset(5)),
-    ],
-    None,
-  ));
+    linearizer.new_epoch(Epoch::new(
+      vec![
+        U64BlobIdClosedInterval::new_from_range_and_offsets(
+          KeyRange(3),
+          KeyOffset(0),
+          KeyOffset(0),
+        ),
+        U64BlobIdClosedInterval::new_from_range_and_offsets(
+          KeyRange(0),
+          KeyOffset(0),
+          KeyOffset(2),
+        ),
+        U64BlobIdClosedInterval::new_from_range_and_offsets(
+          KeyRange(1),
+          KeyOffset(0),
+          KeyOffset(3),
+        ),
+      ],
+      None,
+    ));
+    linearizer.new_epoch(Epoch::new(
+      vec![
+        U64BlobIdClosedInterval::new_from_range_and_offsets(
+          KeyRange(4),
+          KeyOffset(0),
+          KeyOffset(1),
+        ),
+        U64BlobIdClosedInterval::new_from_range_and_offsets(
+          KeyRange(0),
+          KeyOffset(3),
+          KeyOffset(5),
+        ),
+      ],
+      None,
+    ));
 
-  assert_eq!(
-    vec![
-      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(0)),
-      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(1)),
-      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(2)),
-      unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(0)),
-      unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(1)),
-      unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(2)),
-      unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(3)),
-      unique_blob_id_from_range_and_offset(KeyRange(3), KeyOffset(0)),
-      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(3)),
-      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(4)),
-      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(5)),
-      unique_blob_id_from_range_and_offset(KeyRange(4), KeyOffset(0)),
-      unique_blob_id_from_range_and_offset(KeyRange(4), KeyOffset(1)),
-    ],
-    linearizer.sequence
-  );
+    assert_eq!(
+      vec![
+        unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(0)),
+        unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(1)),
+        unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(2)),
+        unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(0)),
+        unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(1)),
+        unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(2)),
+        unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(3)),
+        unique_blob_id_from_range_and_offset(KeyRange(3), KeyOffset(0)),
+        unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(3)),
+        unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(4)),
+        unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(5)),
+        unique_blob_id_from_range_and_offset(KeyRange(4), KeyOffset(0)),
+        unique_blob_id_from_range_and_offset(KeyRange(4), KeyOffset(1)),
+      ],
+      linearizer.sequence
+    );
+  }
 }
