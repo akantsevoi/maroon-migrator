@@ -1,5 +1,6 @@
 use crate::{
   app_interface::{CurrentOffsets, Request, Response},
+  epoch::Epoch,
   p2p_interface::{Inbox, NodeState, Outbox},
 };
 use common::{
@@ -11,10 +12,8 @@ use common::{
   },
   transaction::Transaction,
 };
-use derive_more::Display;
 use libp2p::PeerId;
 use log::{error, info};
-use sha2::{Digest, Sha256};
 use std::{
   collections::{HashMap, HashSet},
   num::NonZeroUsize,
@@ -97,37 +96,6 @@ pub struct App {
   epochs: Vec<Epoch>,
 
   transactions: HashMap<UniqueU64BlobId, Transaction>,
-}
-
-#[derive(Debug, Clone, Display)]
-#[display("Epoch {{ increments: {:?}, hash: 0x{:X} }}", increments, hash.iter().fold(0u128, |acc, &x| (acc << 8) | x as u128))]
-struct Epoch {
-  increments: Vec<(UniqueU64BlobId, UniqueU64BlobId)>,
-  hash: [u8; 32],
-}
-
-impl Epoch {
-  fn new(
-    increments: Vec<(UniqueU64BlobId, UniqueU64BlobId)>,
-    prev_hash: Option<[u8; 32]>,
-  ) -> Epoch {
-    let mut hasher = Sha256::new();
-
-    // Include previous hash if it exists
-    if let Some(prev) = prev_hash {
-      hasher.update(&prev);
-    }
-
-    // Include current epoch data
-    for (start, end) in &increments {
-      hasher.update(start.0.to_le_bytes());
-      hasher.update(end.0.to_le_bytes());
-    }
-
-    let hash = hasher.finalize().into();
-
-    Epoch { increments, hash }
-  }
 }
 
 impl App {

@@ -3,6 +3,7 @@ mod macros;
 
 pub mod app;
 pub mod app_interface;
+pub mod epoch;
 pub mod stack;
 
 mod p2p;
