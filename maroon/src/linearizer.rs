@@ -1,48 +1,71 @@
-use common::range_key::UniqueU64BlobId;
-use sha2::digest::generic_array::sequence;
-
 use crate::epoch::Epoch;
+use common::range_key::UniqueU64BlobId;
+use log::debug;
 
 pub trait Linearizer {
   fn new_epoch(&mut self, epoch: Epoch);
 }
 
-struct LogLineriazer {
+pub struct LogLineriazer {
   sequence: Vec<UniqueU64BlobId>,
 }
 
 impl Linearizer for LogLineriazer {
   fn new_epoch(&mut self, mut epoch: Epoch) {
-    epoch.increments.sort_by_key(|pair| pair.0);
-    let new_elements_count = epoch.increments.iter().sum()
-    self
-      .sequence
-      .resize(epoch.increments.len(), UniqueU64BlobId(0));
+    epoch.increments.sort();
+    let new_elements_count: usize = epoch.increments.iter().map(|i| i.ids_count()).sum();
+    self.sequence.reserve(new_elements_count);
 
-    for (left, right) in &epoch.increments {}
+    for interval in &epoch.increments {
+      for i in interval.iter() {
+        self.sequence.push(i);
+      }
+    }
 
-    println!("new epoch: {epoch}");
-  }
-}
-
-struct AppImitation<L: Linearizer> {
-  linearizer: L,
-}
-
-impl<L: Linearizer> AppImitation<L> {
-  fn some(&mut self) {
-    self.linearizer.new_epoch(Epoch::new(
-      vec![(UniqueU64BlobId(0), UniqueU64BlobId(15))],
-      None,
-    ));
+    debug!("new log: {:?}", self.sequence);
   }
 }
 
 #[test]
 fn test_linear() {
-  let mut app = AppImitation::<LogLineriazer> {
-    linearizer: LogLineriazer { sequence: vec![] },
+  use common::range_key::{
+    KeyOffset, KeyRange, U64BlobIdClosedInterval, unique_blob_id_from_range_and_offset,
   };
 
-  app.some();
+  let mut linearizer = LogLineriazer { sequence: vec![] };
+
+  linearizer.new_epoch(Epoch::new(
+    vec![
+      U64BlobIdClosedInterval::new_from_range_and_offsets(KeyRange(3), KeyOffset(0), KeyOffset(0)),
+      U64BlobIdClosedInterval::new_from_range_and_offsets(KeyRange(0), KeyOffset(0), KeyOffset(2)),
+      U64BlobIdClosedInterval::new_from_range_and_offsets(KeyRange(1), KeyOffset(0), KeyOffset(3)),
+    ],
+    None,
+  ));
+  linearizer.new_epoch(Epoch::new(
+    vec![
+      U64BlobIdClosedInterval::new_from_range_and_offsets(KeyRange(4), KeyOffset(0), KeyOffset(1)),
+      U64BlobIdClosedInterval::new_from_range_and_offsets(KeyRange(0), KeyOffset(3), KeyOffset(5)),
+    ],
+    None,
+  ));
+
+  assert_eq!(
+    vec![
+      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(0)),
+      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(1)),
+      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(2)),
+      unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(0)),
+      unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(1)),
+      unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(2)),
+      unique_blob_id_from_range_and_offset(KeyRange(1), KeyOffset(3)),
+      unique_blob_id_from_range_and_offset(KeyRange(3), KeyOffset(0)),
+      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(3)),
+      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(4)),
+      unique_blob_id_from_range_and_offset(KeyRange(0), KeyOffset(5)),
+      unique_blob_id_from_range_and_offset(KeyRange(4), KeyOffset(0)),
+      unique_blob_id_from_range_and_offset(KeyRange(4), KeyOffset(1)),
+    ],
+    linearizer.sequence
+  );
 }

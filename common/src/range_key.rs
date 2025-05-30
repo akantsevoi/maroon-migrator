@@ -108,6 +108,19 @@ impl U64BlobIdClosedInterval {
   pub fn end(&self) -> UniqueU64BlobId {
     self.right
   }
+
+  pub fn iter(&self) -> impl Iterator<Item = UniqueU64BlobId> + '_ {
+    let mut current = self.left;
+    std::iter::from_fn(move || {
+      if current <= self.right {
+        let result = current;
+        current.0 += 1;
+        Some(result)
+      } else {
+        None
+      }
+    })
+  }
 }
 
 ///
@@ -220,5 +233,22 @@ mod tests {
       ],
       intervals
     );
+  }
+
+  #[test]
+  fn test_interval_iterator() {
+    let interval = U64BlobIdClosedInterval::new(5, 8);
+    let mut iter = interval.iter();
+
+    assert_eq!(Some(UniqueU64BlobId(5)), iter.next());
+    assert_eq!(Some(UniqueU64BlobId(6)), iter.next());
+    assert_eq!(Some(UniqueU64BlobId(7)), iter.next());
+    assert_eq!(Some(UniqueU64BlobId(8)), iter.next());
+    assert_eq!(None, iter.next());
+
+    let empty = U64BlobIdClosedInterval::new(5, 5);
+    let mut iter = empty.iter();
+    assert_eq!(Some(UniqueU64BlobId(5)), iter.next());
+    assert_eq!(None, iter.next());
   }
 }
