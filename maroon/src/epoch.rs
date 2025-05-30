@@ -1,19 +1,16 @@
-use common::range_key::UniqueU64BlobId;
+use common::range_key::U64BlobIdClosedInterval;
 use derive_more::Display;
 use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Display)]
 #[display("Epoch {{ increments: {:?}, hash: 0x{:X} }}", increments, hash.iter().fold(0u128, |acc, &x| (acc << 8) | x as u128))]
 pub struct Epoch {
-  pub increments: Vec<(UniqueU64BlobId, UniqueU64BlobId)>,
+  pub increments: Vec<U64BlobIdClosedInterval>,
   pub hash: [u8; 32],
 }
 
 impl Epoch {
-  pub fn new(
-    increments: Vec<(UniqueU64BlobId, UniqueU64BlobId)>,
-    prev_hash: Option<[u8; 32]>,
-  ) -> Epoch {
+  pub fn new(increments: Vec<U64BlobIdClosedInterval>, prev_hash: Option<[u8; 32]>) -> Epoch {
     let mut hasher = Sha256::new();
 
     // Include previous hash if it exists
@@ -22,9 +19,9 @@ impl Epoch {
     }
 
     // Include current epoch data
-    for (start, end) in &increments {
-      hasher.update(start.0.to_le_bytes());
-      hasher.update(end.0.to_le_bytes());
+    for interval in &increments {
+      hasher.update(interval.start().0.to_le_bytes());
+      hasher.update(interval.end().0.to_le_bytes());
     }
 
     let hash = hasher.finalize().into();
