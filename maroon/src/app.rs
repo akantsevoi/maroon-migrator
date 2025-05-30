@@ -6,8 +6,8 @@ use common::{
   duplex_channel::Endpoint,
   invoker_handler::{HandlerInterface, RequestWrapper},
   range_key::{
-    self, KeyOffset, KeyRange, UniqueU64BlobId, range_offset_from_unique_blob_id,
-    unique_blob_id_from_range_and_offset,
+    self, KeyOffset, KeyRange, U64BlobIdClosedInterval, UniqueU64BlobId,
+    range_offset_from_unique_blob_id, unique_blob_id_from_range_and_offset,
   },
   transaction::Transaction,
 };
@@ -102,15 +102,12 @@ pub struct App {
 #[derive(Debug, Clone, Display)]
 #[display("Epoch {{ increments: {:?}, hash: 0x{:X} }}", increments, hash.iter().fold(0u128, |acc, &x| (acc << 8) | x as u128))]
 struct Epoch {
-  increments: Vec<(UniqueU64BlobId, UniqueU64BlobId)>,
+  increments: Vec<U64BlobIdClosedInterval>,
   hash: [u8; 32],
 }
 
 impl Epoch {
-  fn new(
-    increments: Vec<(UniqueU64BlobId, UniqueU64BlobId)>,
-    prev_hash: Option<[u8; 32]>,
-  ) -> Epoch {
+  fn new(increments: Vec<U64BlobIdClosedInterval>, prev_hash: Option<[u8; 32]>) -> Epoch {
     let mut hasher = Sha256::new();
 
     // Include previous hash if it exists
@@ -119,9 +116,9 @@ impl Epoch {
     }
 
     // Include current epoch data
-    for (start, end) in &increments {
-      hasher.update(start.0.to_le_bytes());
-      hasher.update(end.0.to_le_bytes());
+    for interval in &increments {
+      hasher.update(interval.start().0.to_le_bytes());
+      hasher.update(interval.end().0.to_le_bytes());
     }
 
     let hash = hasher.finalize().into();
@@ -225,19 +222,18 @@ impl App {
           move_offset_pointer(&mut self.offsets, self.peer_id, new_range, new_offset);
         }
       }
-      Inbox::RequestMissingTxs((peer_id, ranges)) => {
+      Inbox::RequestMissingTxs((peer_id, intervals)) => {
         let mut capacity: usize = 0;
-        for (left, right) in &ranges {
-          let lu = left.0 as usize;
-          let ru = right.0 as usize;
-          capacity += ru - lu;
+        for interval in &intervals {
+          capacity += interval.ids_count();
         }
 
         let mut response: Vec<Transaction> = Vec::with_capacity(capacity);
 
-        for (left, right) in ranges {
-          let mut pointer = left;
-          while pointer <= right {
+        for interval in intervals {
+          let mut pointer = interval.start();
+          let end = interval.end();
+          while pointer <= end {
             let Some(tx) = self.transactions.get(&pointer) else {
               continue;
             };
@@ -268,11 +264,11 @@ impl App {
 
     info!("delay detected: {:?}", delays);
 
-    for (peer_id, ranges) in delays {
+    for (peer_id, intervals) in delays {
       self
         .p2p_interface
         .sender
-        .send(Outbox::RequestMissingTxs((peer_id, ranges)))
+        .send(Outbox::RequestMissingTxs((peer_id, intervals)))
         .expect("dont drop channel");
     }
   }
@@ -304,8 +300,8 @@ impl App {
       // maybe there will be some "optimistic" epochs chain for some form of optimisations, I don't know, let's see
       // maybe all these local variables wouldn't make any sense
 
-      for (_, finish) in &new_epoch.increments {
-        let (range, new_offset) = range_offset_from_unique_blob_id(*finish);
+      for interval in &new_epoch.increments {
+        let (range, new_offset) = range_offset_from_unique_blob_id(interval.end());
         self.commited_offsets.insert(range, new_offset);
       }
       self.epochs.push(new_epoch);
@@ -316,7 +312,7 @@ impl App {
 fn calculate_epoch_increments(
   consensus_offset: &HashMap<KeyRange, KeyOffset>,
   commited_offsets: &HashMap<KeyRange, KeyOffset>,
-) -> Vec<(UniqueU64BlobId, UniqueU64BlobId)> {
+) -> Vec<U64BlobIdClosedInterval> {
   let mut increments = Vec::new();
   for (range, offset) in consensus_offset {
     let mut start = KeyOffset(0);
@@ -328,9 +324,8 @@ fn calculate_epoch_increments(
       continue;
     }
 
-    increments.push((
-      unique_blob_id_from_range_and_offset(*range, start),
-      unique_blob_id_from_range_and_offset(*range, *offset),
+    increments.push(U64BlobIdClosedInterval::new_from_range_and_offsets(
+      *range, start, *offset,
     ));
   }
 
@@ -419,8 +414,8 @@ fn self_delays(
   transactions: &HashMap<UniqueU64BlobId, Transaction>,
   self_offsets: &HashMap<KeyRange, KeyOffset>,
   offsets: &HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
-) -> HashMap<PeerId, Vec<(UniqueU64BlobId, UniqueU64BlobId)>> {
-  let mut result = HashMap::<PeerId, Vec<(UniqueU64BlobId, UniqueU64BlobId)>>::new();
+) -> HashMap<PeerId, Vec<U64BlobIdClosedInterval>> {
+  let mut result = HashMap::<PeerId, Vec<U64BlobIdClosedInterval>>::new();
 
   for (range, nodes) in offsets {
     let Some((peer_id, offset)) = nodes
@@ -441,15 +436,16 @@ fn self_delays(
       }
     };
 
-    let mut new_tx_ranges = Vec::<(UniqueU64BlobId, UniqueU64BlobId)>::new();
+    let mut new_intervals = Vec::<U64BlobIdClosedInterval>::new();
 
     let mut pointer = left_border;
     while pointer <= right_border {
       if transactions.contains_key(&unique_blob_id_from_range_and_offset(*range, pointer)) {
         if left_border < pointer {
-          new_tx_ranges.push((
-            unique_blob_id_from_range_and_offset(*range, left_border),
-            unique_blob_id_from_range_and_offset(*range, pointer - KeyOffset(1)),
+          new_intervals.push(U64BlobIdClosedInterval::new_from_range_and_offsets(
+            *range,
+            left_border,
+            pointer - KeyOffset(1),
           ));
         }
         pointer += KeyOffset(1);
@@ -459,16 +455,17 @@ fn self_delays(
       }
     }
     if pointer != left_border {
-      new_tx_ranges.push((
-        unique_blob_id_from_range_and_offset(*range, left_border),
-        unique_blob_id_from_range_and_offset(*range, pointer - KeyOffset(1)),
+      new_intervals.push(U64BlobIdClosedInterval::new_from_range_and_offsets(
+        *range,
+        left_border,
+        pointer - KeyOffset(1),
       ));
     }
 
     if let Some(ranges) = result.get_mut(&peer_id) {
-      ranges.append(&mut new_tx_ranges);
+      ranges.append(&mut new_intervals);
     } else {
-      result.insert(peer_id.clone(), new_tx_ranges);
+      result.insert(peer_id.clone(), new_intervals);
     }
   }
 
@@ -841,7 +838,7 @@ mod tests {
       self_offsets: HashMap<KeyRange, KeyOffset>,
       transactions: HashMap<UniqueU64BlobId, Transaction>,
       offsets: HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
-      expected_ranges: HashMap<PeerId, Vec<(UniqueU64BlobId, UniqueU64BlobId)>>,
+      expected_ranges: HashMap<PeerId, Vec<U64BlobIdClosedInterval>>,
     }
 
     let peer_id_0 = PeerId::random();
@@ -896,19 +893,21 @@ mod tests {
           (
             peer_id_0,
             vec![
-              (UniqueU64BlobId(2), UniqueU64BlobId(4)),
-              (UniqueU64BlobId(7), UniqueU64BlobId(8)),
-              (
-                unique_blob_id_from_range_and_offset(KeyRange(2), KeyOffset(2)),
-                unique_blob_id_from_range_and_offset(KeyRange(2), KeyOffset(3)),
+              U64BlobIdClosedInterval::new(2, 4),
+              U64BlobIdClosedInterval::new(7, 8),
+              U64BlobIdClosedInterval::new_from_range_and_offsets(
+                KeyRange(2),
+                KeyOffset(2),
+                KeyOffset(3),
               ),
             ],
           ),
           (
             peer_id_1,
-            vec![(
-              unique_blob_id_from_range_and_offset(KeyRange(3), KeyOffset(0)),
-              unique_blob_id_from_range_and_offset(KeyRange(3), KeyOffset(3)),
+            vec![U64BlobIdClosedInterval::new_from_range_and_offsets(
+              KeyRange(3),
+              KeyOffset(0),
+              KeyOffset(3),
             )],
           ),
         ]),
@@ -916,7 +915,7 @@ mod tests {
     ] {
       let mut ranges = self_delays(&case.transactions, &case.self_offsets, &case.offsets);
       for (_, v) in ranges.iter_mut() {
-        v.sort_by_key(|pair| pair.0);
+        v.sort();
       }
       assert_eq!(case.expected_ranges, ranges, "{}", case.label);
     }
@@ -928,7 +927,7 @@ mod tests {
       label: &'a str,
       consensus_offset: HashMap<KeyRange, KeyOffset>,
       commited_offsets: HashMap<KeyRange, KeyOffset>,
-      expected_increments: Vec<(UniqueU64BlobId, UniqueU64BlobId)>,
+      expected_increments: Vec<U64BlobIdClosedInterval>,
     }
 
     for case in vec![
@@ -942,7 +941,7 @@ mod tests {
         label: "nothing commited before",
         consensus_offset: [(KeyRange(0), KeyOffset(2))].into(),
         commited_offsets: [].into(),
-        expected_increments: vec![(UniqueU64BlobId(0), UniqueU64BlobId(2))],
+        expected_increments: vec![U64BlobIdClosedInterval::new(0, 2)],
       },
       Case {
         label: "no progress",
@@ -970,12 +969,12 @@ mod tests {
           (KeyRange(2), KeyOffset(8)),
         ]
         .into(),
-        expected_increments: vec![(UniqueU64BlobId(7), UniqueU64BlobId(10))],
+        expected_increments: vec![U64BlobIdClosedInterval::new(7, 10)],
       },
     ] {
       let mut increments =
         calculate_epoch_increments(&case.consensus_offset, &case.commited_offsets);
-      increments.sort_by_key(|pair| pair.0);
+      increments.sort();
       assert_eq!(case.expected_increments, increments, "{}", case.label);
     }
   }

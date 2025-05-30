@@ -6,7 +6,7 @@ use crate::p2p_interface::*;
 use crate::test_helpers::{new_test_instance, reaches_state, test_tx};
 use common::duplex_channel::create_a_b_duplex_pair;
 use common::invoker_handler::create_invoker_handler_pair;
-use common::range_key::{KeyOffset, KeyRange, UniqueU64BlobId};
+use common::range_key::{KeyOffset, KeyRange, U64BlobIdClosedInterval};
 use libp2p::PeerId;
 use tokio::sync::oneshot;
 
@@ -152,7 +152,7 @@ async fn app_gets_missing_transactions_that_smbd_else_requested() {
     .sender
     .send(Inbox::RequestMissingTxs((
       rnd_peer,
-      vec![(UniqueU64BlobId(1), UniqueU64BlobId(3))],
+      vec![U64BlobIdClosedInterval::new(1, 3)],
     )))
     .expect("channel shouldnt be dropped");
 
@@ -206,15 +206,15 @@ async fn app_detects_that_its_behind_and_makes_request() {
     .expect("dont drop");
 
   while let Some(outbox) = a2b_endpoint.receiver.recv().await {
-    let Outbox::RequestMissingTxs((peer, requested_ranges)) = outbox else {
+    let Outbox::RequestMissingTxs((peer, requested_intervals)) = outbox else {
       continue;
     };
     assert_eq!(rnd_peer, peer);
     assert_eq!(
-      requested_ranges,
+      requested_intervals,
       vec![
-        (UniqueU64BlobId(1), UniqueU64BlobId(3)),
-        (UniqueU64BlobId(5), UniqueU64BlobId(8))
+        U64BlobIdClosedInterval::new(1, 3),
+        U64BlobIdClosedInterval::new(5, 8),
       ]
     );
 
