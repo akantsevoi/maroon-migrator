@@ -94,7 +94,11 @@ impl U64BlobIdClosedInterval {
   }
 
   pub fn ids_count(&self) -> usize {
-    (self.right - self.left).0 as usize + 1
+    let diff = self.right.0 - self.left.0;
+    match diff.checked_add(1) {
+      Some(count) => count as usize,
+      None => panic!("interval too large: would overflow when adding 1"),
+    }
   }
 
   pub fn start(&self) -> UniqueU64BlobId {
@@ -179,10 +183,10 @@ mod tests {
   }
 
   #[test]
-  #[should_panic(expected = "attempt to add with overflow")]
+  #[should_panic(expected = "interval too large: would overflow when adding 1")]
   fn test_unique_blob_overflow() {
     let interval = U64BlobIdClosedInterval::new(UniqueU64BlobId(0), UniqueU64BlobId(u64::MAX));
-    assert_eq!(2, interval.ids_count());
+    interval.ids_count();
   }
 
   #[test]
