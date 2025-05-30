@@ -2,6 +2,7 @@ use crate::app::App;
 use crate::app_interface::{
   CurrentOffsets, Request as AppStateRequest, Response as AppStateResponse,
 };
+use crate::linearizer::LogLineriazer;
 use crate::p2p_interface::{Inbox, Outbox};
 use common::invoker_handler::HandlerInterface;
 use common::invoker_handler::InvokerInterface;
@@ -17,8 +18,8 @@ use std::time::Duration;
 pub fn new_test_instance(
   p2p_interface: Endpoint<Outbox, Inbox>,
   state_interface: HandlerInterface<AppStateRequest, AppStateResponse>,
-) -> App {
-  App::new(
+) -> App<LogLineriazer> {
+  App::<LogLineriazer>::new(
     PeerId::random(),
     p2p_interface,
     state_interface,

@@ -1,6 +1,7 @@
 use crate::{
   app_interface::{CurrentOffsets, Request, Response},
   epoch::Epoch,
+  linearizer::{Linearizer, LogLineriazer},
   p2p_interface::{Inbox, NodeState, Outbox},
 };
 use common::{
@@ -66,7 +67,7 @@ impl Params {
   }
 }
 
-pub struct App {
+pub struct App<L: Linearizer> {
   params: Params,
 
   peer_id: PeerId,
@@ -96,15 +97,17 @@ pub struct App {
   epochs: Vec<Epoch>,
 
   transactions: HashMap<UniqueU64BlobId, Transaction>,
+
+  linearizer: L,
 }
 
-impl App {
+impl<L: Linearizer> App<L> {
   pub fn new(
     peer_id: PeerId,
     p2p_interface: Endpoint<Outbox, Inbox>,
     state_interface: HandlerInterface<Request, Response>,
     params: Params,
-  ) -> Result<App, Box<dyn std::error::Error>> {
+  ) -> Result<App<LogLineriazer>, Box<dyn std::error::Error>> {
     Ok(App {
       params,
       peer_id,
@@ -116,6 +119,7 @@ impl App {
       commited_offsets: HashMap::new(),
       epochs: Vec::new(),
       transactions: HashMap::new(),
+      linearizer: LogLineriazer::new(),
     })
   }
 
@@ -263,6 +267,8 @@ impl App {
     let prev_hash = self.epochs.last().map(|e| e.hash);
     let new_epoch = Epoch::new(increments, prev_hash);
     info!("NEW EPOCH: {}", &new_epoch);
+
+    self.linearizer.new_epoch(new_epoch.clone());
 
     {
       // TODO: in the future the code below won't exist

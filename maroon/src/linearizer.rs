@@ -10,6 +10,12 @@ pub struct LogLineriazer {
   sequence: Vec<UniqueU64BlobId>,
 }
 
+impl LogLineriazer {
+  pub fn new() -> LogLineriazer {
+    LogLineriazer { sequence: vec![] }
+  }
+}
+
 impl Linearizer for LogLineriazer {
   fn new_epoch(&mut self, mut epoch: Epoch) {
     epoch.increments.sort();
@@ -32,7 +38,7 @@ fn test_linear() {
     KeyOffset, KeyRange, U64BlobIdClosedInterval, unique_blob_id_from_range_and_offset,
   };
 
-  let mut linearizer = LogLineriazer { sequence: vec![] };
+  let mut linearizer = LogLineriazer::new();
 
   linearizer.new_epoch(Epoch::new(
     vec![

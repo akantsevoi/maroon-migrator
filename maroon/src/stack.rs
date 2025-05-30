@@ -1,16 +1,16 @@
-use common::duplex_channel::create_a_b_duplex_pair;
-use common::invoker_handler::{InvokerInterface, create_invoker_handler_pair};
-
 use crate::app::{App, Params};
 use crate::app_interface::{Request, Response};
+use crate::linearizer::LogLineriazer;
 use crate::p2p::P2P;
 use crate::p2p_interface::{Inbox, Outbox};
+use common::duplex_channel::create_a_b_duplex_pair;
+use common::invoker_handler::{InvokerInterface, create_invoker_handler_pair};
 
 pub fn create_stack(
   node_urls: Vec<String>,
   self_url: String,
   params: Params,
-) -> Result<(App, InvokerInterface<Request, Response>), Box<dyn std::error::Error>> {
+) -> Result<(App<LogLineriazer>, InvokerInterface<Request, Response>), Box<dyn std::error::Error>> {
   let (a2b_endpoint, b2a_endpoint) = create_a_b_duplex_pair::<Inbox, Outbox>();
 
   let mut p2p = P2P::new(node_urls, self_url, a2b_endpoint)?;
@@ -25,7 +25,7 @@ pub fn create_stack(
   let (state_invoker, state_handler) = create_invoker_handler_pair();
 
   Ok((
-    App::new(my_id, b2a_endpoint, state_handler, params)?,
+    App::<LogLineriazer>::new(my_id, b2a_endpoint, state_handler, params)?,
     state_invoker,
   ))
 }
