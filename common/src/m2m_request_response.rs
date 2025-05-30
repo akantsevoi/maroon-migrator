@@ -1,4 +1,4 @@
-use crate::range_key::TransactionID;
+use crate::range_key::UniqueU64BlobId;
 use crate::transaction::Transaction;
 use libp2p::swarm::StreamProtocol;
 use libp2p_request_response::{
@@ -28,7 +28,7 @@ pub enum Request {
   ///
   /// TODO: there should be limit. If delay is too big - node should get them from s3
   /// this one is only for small batch of txs
-  GetMissingTx(Vec<(TransactionID, TransactionID)>),
+  GetMissingTx(Vec<(UniqueU64BlobId, UniqueU64BlobId)>),
 
   /// sends missing transactions
   MissingTx(Vec<Transaction>),

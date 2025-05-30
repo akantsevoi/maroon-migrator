@@ -7,7 +7,7 @@ use common::invoker_handler::HandlerInterface;
 use common::invoker_handler::InvokerInterface;
 use common::{
   duplex_channel::Endpoint,
-  range_key::TransactionID,
+  range_key::UniqueU64BlobId,
   transaction::{Transaction, TxStatus},
 };
 use libp2p::PeerId;
@@ -30,7 +30,7 @@ pub fn new_test_instance(
 #[cfg(test)]
 pub fn test_tx(id: u64) -> Transaction {
   Transaction {
-    id: TransactionID(id),
+    id: UniqueU64BlobId(id),
     status: TxStatus::Pending,
   }
 }

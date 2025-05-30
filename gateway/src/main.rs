@@ -1,6 +1,6 @@
 use common::{
   gm_request_response::Request,
-  range_key::{KeyOffset, KeyRange, key_from_range_and_offset},
+  range_key::{KeyOffset, KeyRange, unique_blob_id_from_range_and_offset},
   transaction::{Transaction, TxStatus},
 };
 use std::time::Duration;
@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   for i in 0..100 {
     _ = gw
       .send_request(Request::NewTransaction(Transaction {
-        id: key_from_range_and_offset(key_range, KeyOffset(i)),
+        id: unique_blob_id_from_range_and_offset(key_range, KeyOffset(i)),
         status: TxStatus::Created,
       }))
       .await?;
