@@ -6,7 +6,8 @@ use common::{
   duplex_channel::Endpoint,
   invoker_handler::{HandlerInterface, RequestWrapper},
   range_key::{
-    self, KeyOffset, KeyRange, TransactionID, key_from_range_and_offset, range_offset_from_key,
+    self, KeyOffset, KeyRange, UniqueU64BlobId, range_offset_from_unique_blob_id,
+    unique_blob_id_from_range_and_offset,
   },
   transaction::Transaction,
 };
@@ -95,18 +96,21 @@ pub struct App {
   /// it's what will be stored on etcd & s3
   epochs: Vec<Epoch>,
 
-  transactions: HashMap<TransactionID, Transaction>,
+  transactions: HashMap<UniqueU64BlobId, Transaction>,
 }
 
 #[derive(Debug, Clone, Display)]
 #[display("Epoch {{ increments: {:?}, hash: 0x{:X} }}", increments, hash.iter().fold(0u128, |acc, &x| (acc << 8) | x as u128))]
 struct Epoch {
-  increments: Vec<(TransactionID, TransactionID)>,
+  increments: Vec<(UniqueU64BlobId, UniqueU64BlobId)>,
   hash: [u8; 32],
 }
 
 impl Epoch {
-  fn new(increments: Vec<(TransactionID, TransactionID)>, prev_hash: Option<[u8; 32]>) -> Epoch {
+  fn new(
+    increments: Vec<(UniqueU64BlobId, UniqueU64BlobId)>,
+    prev_hash: Option<[u8; 32]>,
+  ) -> Epoch {
     let mut hasher = Sha256::new();
 
     // Include previous hash if it exists
@@ -238,7 +242,7 @@ impl App {
               continue;
             };
             response.push(tx.clone());
-            pointer += TransactionID(1);
+            pointer += UniqueU64BlobId(1);
           }
         }
 
@@ -301,7 +305,7 @@ impl App {
       // maybe all these local variables wouldn't make any sense
 
       for (_, finish) in &new_epoch.increments {
-        let (range, new_offset) = range_offset_from_key(*finish);
+        let (range, new_offset) = range_offset_from_unique_blob_id(*finish);
         self.commited_offsets.insert(range, new_offset);
       }
       self.epochs.push(new_epoch);
@@ -312,7 +316,7 @@ impl App {
 fn calculate_epoch_increments(
   consensus_offset: &HashMap<KeyRange, KeyOffset>,
   commited_offsets: &HashMap<KeyRange, KeyOffset>,
-) -> Vec<(TransactionID, TransactionID)> {
+) -> Vec<(UniqueU64BlobId, UniqueU64BlobId)> {
   let mut increments = Vec::new();
   for (range, offset) in consensus_offset {
     let mut start = KeyOffset(0);
@@ -325,8 +329,8 @@ fn calculate_epoch_increments(
     }
 
     increments.push((
-      key_from_range_and_offset(*range, start),
-      key_from_range_and_offset(*range, *offset),
+      unique_blob_id_from_range_and_offset(*range, start),
+      unique_blob_id_from_range_and_offset(*range, *offset),
     ));
   }
 
@@ -351,7 +355,7 @@ fn move_offset_pointer(
 /// wrapper around `update_self_offsets`
 fn update_self_offset(
   self_offsets: &mut HashMap<KeyRange, KeyOffset>,
-  transactions: &mut HashMap<TransactionID, Transaction>,
+  transactions: &mut HashMap<UniqueU64BlobId, Transaction>,
   tx: Transaction,
 ) -> Option<(KeyRange, KeyOffset)> {
   let mut updates = update_self_offsets(self_offsets, transactions, txs_to_range_tx_map(vec![tx]));
@@ -366,7 +370,7 @@ fn update_self_offset(
 /// returns changed offsets if there are any
 fn update_self_offsets(
   self_offsets: &mut HashMap<KeyRange, KeyOffset>,
-  transactions: &mut HashMap<TransactionID, Transaction>,
+  transactions: &mut HashMap<UniqueU64BlobId, Transaction>,
   range_transactions: HashMap<KeyRange, Vec<Transaction>>,
 ) -> Vec<(KeyRange, KeyOffset)> {
   let mut updates = Vec::<(KeyRange, KeyOffset)>::new();
@@ -374,7 +378,7 @@ fn update_self_offsets(
   for (range, txs) in range_transactions {
     let mut has_0_tx = false;
     for tx in txs {
-      let (_, offset) = range_key::range_offset_from_key(tx.id);
+      let (_, offset) = range_key::range_offset_from_unique_blob_id(tx.id);
       transactions.insert(tx.id, tx);
 
       if offset == KeyOffset(0) {
@@ -394,13 +398,13 @@ fn update_self_offsets(
       }
     };
 
-    let mut key = range_key::key_from_range_and_offset(range, *start);
-    while transactions.contains_key(&(key + TransactionID(1))) {
+    let mut key = range_key::unique_blob_id_from_range_and_offset(range, *start);
+    while transactions.contains_key(&(key + UniqueU64BlobId(1))) {
       // TODO: there is an overflow error here. If one range is finished transaction can still be in the map, but offset will be above the maximum
-      key += TransactionID(1);
+      key += UniqueU64BlobId(1);
     }
 
-    let (_, new_offset) = range_key::range_offset_from_key(key);
+    let (_, new_offset) = range_key::range_offset_from_unique_blob_id(key);
     self_offsets.insert(range, new_offset);
 
     updates.push((range, new_offset));
@@ -412,11 +416,11 @@ fn update_self_offsets(
 /// calculates delays that current node (self_delays) has compare to other nodes `offsets`
 /// also uses transactions in order to reduce amount of requested transactions
 fn self_delays(
-  transactions: &HashMap<TransactionID, Transaction>,
+  transactions: &HashMap<UniqueU64BlobId, Transaction>,
   self_offsets: &HashMap<KeyRange, KeyOffset>,
   offsets: &HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
-) -> HashMap<PeerId, Vec<(TransactionID, TransactionID)>> {
-  let mut result = HashMap::<PeerId, Vec<(TransactionID, TransactionID)>>::new();
+) -> HashMap<PeerId, Vec<(UniqueU64BlobId, UniqueU64BlobId)>> {
+  let mut result = HashMap::<PeerId, Vec<(UniqueU64BlobId, UniqueU64BlobId)>>::new();
 
   for (range, nodes) in offsets {
     let Some((peer_id, offset)) = nodes
@@ -437,15 +441,15 @@ fn self_delays(
       }
     };
 
-    let mut new_tx_ranges = Vec::<(TransactionID, TransactionID)>::new();
+    let mut new_tx_ranges = Vec::<(UniqueU64BlobId, UniqueU64BlobId)>::new();
 
     let mut pointer = left_border;
     while pointer <= right_border {
-      if transactions.contains_key(&key_from_range_and_offset(*range, pointer)) {
+      if transactions.contains_key(&unique_blob_id_from_range_and_offset(*range, pointer)) {
         if left_border < pointer {
           new_tx_ranges.push((
-            key_from_range_and_offset(*range, left_border),
-            key_from_range_and_offset(*range, pointer - KeyOffset(1)),
+            unique_blob_id_from_range_and_offset(*range, left_border),
+            unique_blob_id_from_range_and_offset(*range, pointer - KeyOffset(1)),
           ));
         }
         pointer += KeyOffset(1);
@@ -456,8 +460,8 @@ fn self_delays(
     }
     if pointer != left_border {
       new_tx_ranges.push((
-        key_from_range_and_offset(*range, left_border),
-        key_from_range_and_offset(*range, pointer - KeyOffset(1)),
+        unique_blob_id_from_range_and_offset(*range, left_border),
+        unique_blob_id_from_range_and_offset(*range, pointer - KeyOffset(1)),
       ));
     }
 
@@ -506,7 +510,7 @@ fn recalculate_order(self_id: PeerId, ids: &HashSet<PeerId>) {
 pub fn txs_to_range_tx_map(txs: Vec<Transaction>) -> HashMap<KeyRange, Vec<Transaction>> {
   let mut range_map: HashMap<KeyRange, Vec<Transaction>> = HashMap::new();
   for tx in txs {
-    let range = range_key::range_index_by_key(tx.id);
+    let range = range_key::range_from_unique_blob_id(tx.id);
 
     if let Some(bucket) = range_map.get_mut(&range) {
       bucket.push(tx);
@@ -573,10 +577,10 @@ mod tests {
     struct Case<'a> {
       label: &'a str,
       initial_self_offsets: HashMap<KeyRange, KeyOffset>,
-      initial_transactions: HashMap<TransactionID, Transaction>,
+      initial_transactions: HashMap<UniqueU64BlobId, Transaction>,
       transaction: Transaction,
       expected_self_offsets: HashMap<KeyRange, KeyOffset>,
-      expected_transactions: HashMap<TransactionID, Transaction>,
+      expected_transactions: HashMap<UniqueU64BlobId, Transaction>,
     }
 
     let cases = [
@@ -585,14 +589,14 @@ mod tests {
         initial_self_offsets: HashMap::new(),
         initial_transactions: HashMap::new(),
         transaction: Transaction {
-          id: TransactionID(0),
+          id: UniqueU64BlobId(0),
           status: TxStatus::Pending,
         },
         expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
         expected_transactions: HashMap::from([(
-          TransactionID(0),
+          UniqueU64BlobId(0),
           Transaction {
-            id: TransactionID(0),
+            id: UniqueU64BlobId(0),
             status: TxStatus::Pending,
           },
         )]),
@@ -601,21 +605,21 @@ mod tests {
         label: "add already existing transaction. no effect",
         initial_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
         initial_transactions: HashMap::from([(
-          TransactionID(0),
+          UniqueU64BlobId(0),
           Transaction {
-            id: TransactionID(0),
+            id: UniqueU64BlobId(0),
             status: TxStatus::Pending,
           },
         )]),
         transaction: Transaction {
-          id: TransactionID(0),
+          id: UniqueU64BlobId(0),
           status: TxStatus::Pending,
         },
         expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
         expected_transactions: HashMap::from([(
-          TransactionID(0),
+          UniqueU64BlobId(0),
           Transaction {
-            id: TransactionID(0),
+            id: UniqueU64BlobId(0),
             status: TxStatus::Pending,
           },
         )]),
@@ -624,29 +628,29 @@ mod tests {
         label: "add next transaction",
         initial_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
         initial_transactions: HashMap::from([(
-          TransactionID(0),
+          UniqueU64BlobId(0),
           Transaction {
-            id: TransactionID(0),
+            id: UniqueU64BlobId(0),
             status: TxStatus::Pending,
           },
         )]),
         transaction: Transaction {
-          id: TransactionID(1),
+          id: UniqueU64BlobId(1),
           status: TxStatus::Pending,
         },
         expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(1))]),
         expected_transactions: HashMap::from([
           (
-            TransactionID(0),
+            UniqueU64BlobId(0),
             Transaction {
-              id: TransactionID(0),
+              id: UniqueU64BlobId(0),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(1),
+            UniqueU64BlobId(1),
             Transaction {
-              id: TransactionID(1),
+              id: UniqueU64BlobId(1),
               status: TxStatus::Pending,
             },
           ),
@@ -656,29 +660,29 @@ mod tests {
         label: "add transaction, fill the gap, empty initial offset",
         initial_self_offsets: HashMap::from([]),
         initial_transactions: HashMap::from([(
-          TransactionID(1),
+          UniqueU64BlobId(1),
           Transaction {
-            id: TransactionID(1),
+            id: UniqueU64BlobId(1),
             status: TxStatus::Pending,
           },
         )]),
         transaction: Transaction {
-          id: TransactionID(0),
+          id: UniqueU64BlobId(0),
           status: TxStatus::Pending,
         },
         expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(1))]),
         expected_transactions: HashMap::from([
           (
-            TransactionID(0),
+            UniqueU64BlobId(0),
             Transaction {
-              id: TransactionID(0),
+              id: UniqueU64BlobId(0),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(1),
+            UniqueU64BlobId(1),
             Transaction {
-              id: TransactionID(1),
+              id: UniqueU64BlobId(1),
               status: TxStatus::Pending,
             },
           ),
@@ -689,58 +693,58 @@ mod tests {
         initial_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
         initial_transactions: HashMap::from([
           (
-            TransactionID(0),
+            UniqueU64BlobId(0),
             Transaction {
-              id: TransactionID(0),
+              id: UniqueU64BlobId(0),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(2),
+            UniqueU64BlobId(2),
             Transaction {
-              id: TransactionID(2),
+              id: UniqueU64BlobId(2),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(4),
+            UniqueU64BlobId(4),
             Transaction {
-              id: TransactionID(4),
+              id: UniqueU64BlobId(4),
               status: TxStatus::Pending,
             },
           ),
         ]),
         transaction: Transaction {
-          id: TransactionID(1),
+          id: UniqueU64BlobId(1),
           status: TxStatus::Pending,
         },
         expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(2))]),
         expected_transactions: HashMap::from([
           (
-            TransactionID(0),
+            UniqueU64BlobId(0),
             Transaction {
-              id: TransactionID(0),
+              id: UniqueU64BlobId(0),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(1),
+            UniqueU64BlobId(1),
             Transaction {
-              id: TransactionID(1),
+              id: UniqueU64BlobId(1),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(2),
+            UniqueU64BlobId(2),
             Transaction {
-              id: TransactionID(2),
+              id: UniqueU64BlobId(2),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(4),
+            UniqueU64BlobId(4),
             Transaction {
-              id: TransactionID(4),
+              id: UniqueU64BlobId(4),
               status: TxStatus::Pending,
             },
           ),
@@ -751,58 +755,58 @@ mod tests {
         initial_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
         initial_transactions: HashMap::from([
           (
-            TransactionID(0),
+            UniqueU64BlobId(0),
             Transaction {
-              id: TransactionID(0),
+              id: UniqueU64BlobId(0),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(2),
+            UniqueU64BlobId(2),
             Transaction {
-              id: TransactionID(2),
+              id: UniqueU64BlobId(2),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(4),
+            UniqueU64BlobId(4),
             Transaction {
-              id: TransactionID(4),
+              id: UniqueU64BlobId(4),
               status: TxStatus::Pending,
             },
           ),
         ]),
         transaction: Transaction {
-          id: TransactionID(3),
+          id: UniqueU64BlobId(3),
           status: TxStatus::Pending,
         },
         expected_self_offsets: HashMap::from([(KeyRange(0), KeyOffset(0))]),
         expected_transactions: HashMap::from([
           (
-            TransactionID(0),
+            UniqueU64BlobId(0),
             Transaction {
-              id: TransactionID(0),
+              id: UniqueU64BlobId(0),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(3),
+            UniqueU64BlobId(3),
             Transaction {
-              id: TransactionID(3),
+              id: UniqueU64BlobId(3),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(2),
+            UniqueU64BlobId(2),
             Transaction {
-              id: TransactionID(2),
+              id: UniqueU64BlobId(2),
               status: TxStatus::Pending,
             },
           ),
           (
-            TransactionID(4),
+            UniqueU64BlobId(4),
             Transaction {
-              id: TransactionID(4),
+              id: UniqueU64BlobId(4),
               status: TxStatus::Pending,
             },
           ),
@@ -835,9 +839,9 @@ mod tests {
     struct Case<'a> {
       label: &'a str,
       self_offsets: HashMap<KeyRange, KeyOffset>,
-      transactions: HashMap<TransactionID, Transaction>,
+      transactions: HashMap<UniqueU64BlobId, Transaction>,
       offsets: HashMap<KeyRange, HashMap<PeerId, KeyOffset>>,
-      expected_ranges: HashMap<PeerId, Vec<(TransactionID, TransactionID)>>,
+      expected_ranges: HashMap<PeerId, Vec<(UniqueU64BlobId, UniqueU64BlobId)>>,
     }
 
     let peer_id_0 = PeerId::random();
@@ -871,8 +875,8 @@ mod tests {
         label: "self behind few and few gaps in txs",
         self_offsets: HashMap::from([(KeyRange(0), KeyOffset(1)), (KeyRange(2), KeyOffset(1))]),
         transactions: HashMap::from([
-          (TransactionID(5), test_tx(5)),
-          (TransactionID(6), test_tx(6)),
+          (UniqueU64BlobId(5), test_tx(5)),
+          (UniqueU64BlobId(6), test_tx(6)),
         ]),
         offsets: HashMap::from([
           (
@@ -892,19 +896,19 @@ mod tests {
           (
             peer_id_0,
             vec![
-              (TransactionID(2), TransactionID(4)),
-              (TransactionID(7), TransactionID(8)),
+              (UniqueU64BlobId(2), UniqueU64BlobId(4)),
+              (UniqueU64BlobId(7), UniqueU64BlobId(8)),
               (
-                key_from_range_and_offset(KeyRange(2), KeyOffset(2)),
-                key_from_range_and_offset(KeyRange(2), KeyOffset(3)),
+                unique_blob_id_from_range_and_offset(KeyRange(2), KeyOffset(2)),
+                unique_blob_id_from_range_and_offset(KeyRange(2), KeyOffset(3)),
               ),
             ],
           ),
           (
             peer_id_1,
             vec![(
-              key_from_range_and_offset(KeyRange(3), KeyOffset(0)),
-              key_from_range_and_offset(KeyRange(3), KeyOffset(3)),
+              unique_blob_id_from_range_and_offset(KeyRange(3), KeyOffset(0)),
+              unique_blob_id_from_range_and_offset(KeyRange(3), KeyOffset(3)),
             )],
           ),
         ]),
@@ -924,7 +928,7 @@ mod tests {
       label: &'a str,
       consensus_offset: HashMap<KeyRange, KeyOffset>,
       commited_offsets: HashMap<KeyRange, KeyOffset>,
-      expected_increments: Vec<(TransactionID, TransactionID)>,
+      expected_increments: Vec<(UniqueU64BlobId, UniqueU64BlobId)>,
     }
 
     for case in vec![
@@ -938,7 +942,7 @@ mod tests {
         label: "nothing commited before",
         consensus_offset: [(KeyRange(0), KeyOffset(2))].into(),
         commited_offsets: [].into(),
-        expected_increments: vec![(TransactionID(0), TransactionID(2))],
+        expected_increments: vec![(UniqueU64BlobId(0), UniqueU64BlobId(2))],
       },
       Case {
         label: "no progress",
@@ -966,7 +970,7 @@ mod tests {
           (KeyRange(2), KeyOffset(8)),
         ]
         .into(),
-        expected_increments: vec![(TransactionID(7), TransactionID(10))],
+        expected_increments: vec![(UniqueU64BlobId(7), UniqueU64BlobId(10))],
       },
     ] {
       let mut increments =

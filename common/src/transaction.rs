@@ -1,10 +1,10 @@
-use crate::range_key::TransactionID;
+use crate::range_key::UniqueU64BlobId;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Transaction {
-  pub id: TransactionID,
+  pub id: UniqueU64BlobId,
   pub status: TxStatus,
 }
 

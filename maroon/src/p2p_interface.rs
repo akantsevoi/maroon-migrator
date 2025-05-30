@@ -1,5 +1,5 @@
 use common::{
-  range_key::{KeyOffset, KeyRange, TransactionID},
+  range_key::{KeyOffset, KeyRange, UniqueU64BlobId},
   transaction::Transaction,
 };
 use libp2p::PeerId;
@@ -15,7 +15,7 @@ use std::{
 pub enum Outbox {
   State(NodeState),
 
-  RequestMissingTxs((PeerId, Vec<(TransactionID, TransactionID)>)),
+  RequestMissingTxs((PeerId, Vec<(UniqueU64BlobId, UniqueU64BlobId)>)),
   RequestedTxsForPeer((PeerId, Vec<Transaction>)),
 }
 
@@ -27,7 +27,7 @@ pub enum Inbox {
   Nodes(HashSet<PeerId>),
   NewTransaction(Transaction),
 
-  RequestMissingTxs((PeerId, Vec<(TransactionID, TransactionID)>)),
+  RequestMissingTxs((PeerId, Vec<(UniqueU64BlobId, UniqueU64BlobId)>)),
   MissingTx(Vec<Transaction>),
 }
 

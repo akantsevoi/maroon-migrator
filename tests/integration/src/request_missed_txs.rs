@@ -7,7 +7,7 @@ use common::{
   gm_request_response::Request,
   invoker_handler::InvokerInterface,
   meta_exchange::Response,
-  range_key::{KeyOffset, KeyRange, TransactionID},
+  range_key::{KeyOffset, KeyRange, UniqueU64BlobId},
   transaction::{Transaction, TxStatus},
 };
 use gateway::core::Gateway;
@@ -74,13 +74,13 @@ async fn request_missed_txs() {
   // send requests from gateway
   _ = gw
     .send_request(Request::NewTransaction(Transaction {
-      id: TransactionID(1),
+      id: UniqueU64BlobId(1),
       status: TxStatus::Created,
     }))
     .await;
   _ = gw
     .send_request(Request::NewTransaction(Transaction {
-      id: TransactionID(0),
+      id: UniqueU64BlobId(0),
       status: TxStatus::Created,
     }))
     .await;

@@ -6,7 +6,7 @@ use crate::p2p_interface::*;
 use crate::test_helpers::{new_test_instance, reaches_state, test_tx};
 use common::duplex_channel::create_a_b_duplex_pair;
 use common::invoker_handler::create_invoker_handler_pair;
-use common::range_key::{KeyOffset, KeyRange, TransactionID};
+use common::range_key::{KeyOffset, KeyRange, UniqueU64BlobId};
 use libp2p::PeerId;
 use tokio::sync::oneshot;
 
@@ -152,7 +152,7 @@ async fn app_gets_missing_transactions_that_smbd_else_requested() {
     .sender
     .send(Inbox::RequestMissingTxs((
       rnd_peer,
-      vec![(TransactionID(1), TransactionID(3))],
+      vec![(UniqueU64BlobId(1), UniqueU64BlobId(3))],
     )))
     .expect("channel shouldnt be dropped");
 
@@ -213,8 +213,8 @@ async fn app_detects_that_its_behind_and_makes_request() {
     assert_eq!(
       requested_ranges,
       vec![
-        (TransactionID(1), TransactionID(3)),
-        (TransactionID(5), TransactionID(8))
+        (UniqueU64BlobId(1), UniqueU64BlobId(3)),
+        (UniqueU64BlobId(5), UniqueU64BlobId(8))
       ]
     );
 
