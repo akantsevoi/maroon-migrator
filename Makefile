@@ -3,6 +3,7 @@ PORT ?= 3000
 PROFILE ?= debug
 NODE_URLS ?= /ip4/127.0.0.1/tcp/3000,/ip4/127.0.0.1/tcp/3001,/ip4/127.0.0.1/tcp/3002
 KEY_RANGE ?= 0
+CONSENSUS_NODES ?= 2
 
 ifeq ($(PROFILE),release)
     PROFILE_FLAG := --release
@@ -27,7 +28,7 @@ run-local:
 	NODE_URLS=/ip4/127.0.0.1/tcp/3000,/ip4/127.0.0.1/tcp/3001,/ip4/127.0.0.1/tcp/3002 \
 	SELF_URL=/ip4/127.0.0.1/tcp/${PORT} \
 	RUST_LOG=debug \
-	CONSENSUS_NODES=2 \
+	CONSENSUS_NODES=${CONSENSUS_NODES} \
 		cargo run -p maroon $(PROFILE_FLAG)
 
 run-gateway:
