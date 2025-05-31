@@ -5,7 +5,7 @@ services:
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - ETCD_ENDPOINTS=http://etcd-00:2379,http://etcd-01:2379,http://etcd-02:2379
-      - NODE_URLS=/dns4/mn2/tcp/3000
+      - NODE_URLS=/dns4/mn2/tcp/3000,/dns4/mn3/tcp/3000
       - SELF_URL=/ip4/0.0.0.0/tcp/3000
     ports:
       - "3000:3000"
@@ -17,10 +17,22 @@ services:
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - ETCD_ENDPOINTS=http://etcd-00:2379,http://etcd-01:2379,http://etcd-02:2379
-      - NODE_URLS=/dns4/mn1/tcp/3000
+      - NODE_URLS=/dns4/mn1/tcp/3000,/dns4/mn3/tcp/3000
       - SELF_URL=/ip4/0.0.0.0/tcp/3000
     ports:
       - "3001:3000"
+    networks:
+      - etcd
+  mn3:
+    container_name: mn3
+    image: maroon-mn:latest
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+      - ETCD_ENDPOINTS=http://etcd-00:2379,http://etcd-01:2379,http://etcd-02:2379
+      - NODE_URLS=/dns4/mn1/tcp/3000,/dns4/mn2/tcp/3000
+      - SELF_URL=/ip4/0.0.0.0/tcp/3000
+    ports:
+      - "3002:3000"
     networks:
       - etcd
 networks:

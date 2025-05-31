@@ -315,11 +315,10 @@ fn handle_m2m_req_res(
       .expect("TODO: shouldnt panic?"),
   }
 
-  let res = swarm
+  _ = swarm
     .behaviour_mut()
     .m2m_req_res
     .send_response(channel, M2MResponse::Ack);
-  debug!("Response sent: {:?}", res);
 }
 
 fn handle_request_response(
@@ -334,17 +333,16 @@ fn handle_request_response(
         request,
         channel,
       } => {
-        debug!("Request: {:?}, {:?}", request_id, request);
+        debug!("Got request: {:?}, {:?}", request_id, request);
 
         match request {
           GMRequest::NewTransaction(tx) => {
             _ = to_app.send(Inbox::NewTransaction(tx));
 
-            let res = swarm
+            _ = swarm
               .behaviour_mut()
               .request_response
               .send_response(channel, GMResponse::Acknowledged);
-            debug!("Response sent: {:?}", res);
           }
         }
       }

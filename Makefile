@@ -27,14 +27,14 @@ run-local:
 	ETCD_ENDPOINTS=${ETCD_ENDPOINTS} \
 	NODE_URLS=/ip4/127.0.0.1/tcp/3000,/ip4/127.0.0.1/tcp/3001,/ip4/127.0.0.1/tcp/3002 \
 	SELF_URL=/ip4/127.0.0.1/tcp/${PORT} \
-	RUST_LOG=debug \
+	RUST_LOG=maroon=debug \
 	CONSENSUS_NODES=${CONSENSUS_NODES} \
 		cargo run -p maroon $(PROFILE_FLAG)
 
 run-gateway:
 	KEY_RANGE=${KEY_RANGE} \
 	NODE_URLS=${NODE_URLS} \
-	RUST_LOG=info \
+	RUST_LOG=gateway=debug \
 		cargo run -p gateway $(PROFILE_FLAG)
 
 test:
