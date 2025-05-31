@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gateway-Node Message Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4a4a4a;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .load-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .play-btn {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            color: white;
+        }
+
+        .pause-btn {
+            background: linear-gradient(45deg, #FF9800, #F57C00);
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 20px;
+        }
+
+        .speed-slider {
+            width: 150px;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .speed-slider:hover {
+            opacity: 1;
+        }
+
+        .timeline {
+            background: rgba(240, 240, 240, 0.8);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .timeline-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #ccc;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.1s ease;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+        }
+
+        .visualization {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            background: radial-gradient(circle at center, #f8f9fa 0%, #e9ecef 100%);
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .entity {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .entity:hover {
+            transform: scale(1.1);
+        }
+
+        .node {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            width: 80px;
+            height: 80px;
+            font-size: 12px;
+        }
+
+        .gateway {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            width: 90px;
+            height: 90px;
+            font-size: 13px;
+            position: relative;
+        }
+
+        .gateway::after {
+            content: '';
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .message {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .gateway-to-node {
+            background: radial-gradient(circle, #FFD700, #FFA500);
+            width: 15px;
+            height: 15px;
+        }
+
+        .node-to-node {
+            background: radial-gradient(circle, #FF69B4, #FF1493);
+            width: 15px;
+            height: 15px;
+        }
+
+        .node-broadcast {
+            background: radial-gradient(circle, #9C27B0, #673AB7);
+            width: 18px;
+            height: 18px;
+            border: 2px solid #fff;
+        }
+
+        .status {
+            text-align: center;
+            margin: 10px 0;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .loaded {
+            color: #4CAF50;
+        }
+
+        .playing {
+            color: #2196F3;
+        }
+
+        .paused {
+            color: #FF9800;
+        }
+
+        .stopped {
+            color: #666;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .legend-circle {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .legend-node {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+        }
+
+        .legend-gateway {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+        }
+
+        .legend-msg-gw {
+            background: radial-gradient(circle, #FFD700, #FFA500);
+        }
+
+        .legend-msg-node {
+            background: radial-gradient(circle, #FF69B4, #FF1493);
+        }
+
+        .legend-msg-broadcast {
+            background: radial-gradient(circle, #9C27B0, #673AB7);
+        }
+
+        .offset-display {
+            position: absolute;
+            top: 85px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            white-space: pre-wrap;
+            min-width: 60px;
+            max-width: 300px;
+            width: max-content;
+            text-align: left;
+            pointer-events: none;
+            box-sizing: border-box;
+            z-index: 5;
+        }
+
+        .offset-updated {
+            animation: offsetPulse 0.5s ease-in-out;
+        }
+
+        @keyframes offsetPulse {
+            0% {
+                background-color: rgba(255, 215, 0, 0.9);
+            }
+
+            100% {
+                background-color: rgba(0, 0, 0, 0.8);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🖖 Gateway-Node Message Visualization</h1>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-circle legend-gateway"></div>
+                <span>Gateway</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-circle legend-node"></div>
+                <span>Node</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-circle legend-msg-gw"></div>
+                <span>Gateway → Node</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-circle legend-msg-broadcast"></div>
+                <span>Node Broadcast</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="loadBtn" class="load-btn">📥 Load & Parse Logs</button>
+            <button id="playBtn" class="play-btn" disabled>▶️ Play</button>
+            <button id="pauseBtn" class="pause-btn" disabled>⏸️ Pause</button>
+
+            <div class="speed-control">
+                <span>Speed:</span>
+                <input type="range" id="speedSlider" class="speed-slider" min="1" max="100" value="10" step="1">
+                <span id="speedDisplay">1x</span>
+            </div>
+        </div>
+
+        <div class="status" id="status">Ready to load logs</div>
+
+        <div class="timeline">
+            <div class="timeline-info">
+                <span id="startTime">Start: --</span>
+                <span id="currentTime">Current: --</span>
+                <span id="endTime">End: --</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="visualization" id="visualization"></div>
+    </div>
+
+    <script>
+        // Configuration - you can modify these file paths
+        const node_logs = [
+            "logs/node_1.log",
+            "logs/node_2.log",
+            "logs/node_3.log"
+        ];
+
+        const gateway_logs = [
+            "logs/gateway_1.log",
+            "logs/gateway_2.log",
+            "logs/gateway_3.log"
+        ];
+
+        // Global state
+        let entities = new Map(); // peer_id -> entity info
+        let events = []; // sorted list of events
+        let isPlaying = false;
+        let currentEventIndex = 0;
+        let startTime = null;
+        let endTime = null;
+        let playbackSpeed = 1; // Will be set correctly by updateSpeed() on page load
+        let animationId = null;
+        let lastUpdateTime = 0;
+        let gatewayColors = new Map(); // peer_id -> color
+        let nodeOffsets = new Map(); // peer_id -> current offset data
+
+        // Generate random bright colors for gateways
+        function generateRandomColor() {
+            const colors = [
+                '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+                '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+                '#F8C471', '#82E0AA', '#F1948A', '#85C1E9', '#D7BDE2'
+            ];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        // DOM elements
+        const loadBtn = document.getElementById('loadBtn');
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedDisplay = document.getElementById('speedDisplay');
+        const status = document.getElementById('status');
+        const startTimeDisplay = document.getElementById('startTime');
+        const currentTimeDisplay = document.getElementById('currentTime');
+        const endTimeDisplay = document.getElementById('endTime');
+        const progressFill = document.getElementById('progressFill');
+        const visualization = document.getElementById('visualization');
+
+        // Event listeners
+        loadBtn.addEventListener('click', loadAndParseLogs);
+        playBtn.addEventListener('click', startPlayback);
+        pauseBtn.addEventListener('click', pausePlayback);
+        speedSlider.addEventListener('input', updateSpeed);
+
+        // Initialize speed display
+        updateSpeed();
+
+        function updateSpeed() {
+            const sliderValue = parseInt(speedSlider.value);
+            // Convert slider range (1-100) to speed range (0.1-10)
+            // 1-9: 0.1x to 0.9x (slower)
+            // 10: 1x (normal)
+            // 11-100: 1.1x to 10x (faster)
+            if (sliderValue < 10) {
+                playbackSpeed = sliderValue / 10; // 0.1 to 0.9
+            } else {
+                playbackSpeed = (sliderValue - 9) / 10; // 1.0 to 10.0
+            }
+            speedDisplay.textContent = `${playbackSpeed.toFixed(1)}x`;
+        }
+
+        function setStatus(text, className) {
+            status.textContent = text;
+            status.className = `status ${className}`;
+        }
+
+        function parseTimestamp(timestampStr) {
+            // Parse format like "2025-05-29T15:01:08Z"
+            return new Date(timestampStr);
+        }
+
+        function formatTime(date) {
+            if (!date || isNaN(date.getTime())) return '--';
+            return date.toLocaleTimeString();
+        }
+
+        async function loadLogFile(filepath) {
+            try {
+                const response = await fetch(filepath);
+                if (!response.ok) {
+                    throw new Error(`Failed to load ${filepath}: ${response.status}`);
+                }
+                return await response.text();
+            } catch (error) {
+                console.error(`Error loading ${filepath}:`, error);
+                throw error;
+            }
+        }
+
+        function extractPeerIdFromLine(line) {
+            const match = line.match(/Local peer id: PeerId\("([^"]+)"\)/);
+            return match ? match[1] : null;
+        }
+
+        function extractSendingRequest(line) {
+            if (!line || !line.includes('Sending request NewTransaction(')) {
+                return null;
+            }
+            const parts = line.split(' ');
+            const lastPart = parts[parts.length - 1];
+
+            if (lastPart.length != 52) {
+                return null;
+            }
+
+            return {
+                transactionId: "doesntmatter",
+                targetPeerId: lastPart
+            };
+        }
+
+        function extractBroadcastSelfState(line) {
+            if (!line || !line.includes('broadcast_self_state')) {
+                return null;
+            }
+
+            // This indicates a node is broadcasting its state to all other nodes
+            return {
+                type: 'broadcast_self_state'
+            };
+        }
+
+        function extractOffsetUpdate(line) {
+            if (!line || !line.includes('my_current_offset')) {
+                return null;
+            }
+
+            // Extract the offset information after "my_current_offset"
+            const offsetIndex = line.indexOf('my_current_offset');
+            var offsetPart = line.substring(offsetIndex).replace('my_current_offset:', '').trim();;
+            offsetPart = offsetPart.replace(/, /g, '\n');
+            offsetPart = offsetPart.replace(/{/g, '');
+            offsetPart = offsetPart.replace(/}/g, '');
+
+            return {
+                type: 'offset_update',
+                offsetData: offsetPart
+            };
+        }
+
+        function extractTimestamp(line) {
+            if (!line || !line.trim()) return null;
+
+            const startIndex = line.indexOf('[');
+            const spaceIndex = line.indexOf(' ');
+
+            if (startIndex !== -1 && spaceIndex !== -1 && spaceIndex > startIndex) {
+                const timestampStr = line.substring(startIndex + 1, spaceIndex);
+
+                const timestamp = parseTimestamp(timestampStr);
+                // Validate the timestamp
+                if (timestamp && !isNaN(timestamp.getTime())) {
+                    return timestamp;
+                }
+            }
+            return null;
+        }
+
+        function getFirstValidTimestamp(lines) {
+            for (const line of lines) {
+                const timestamp = extractTimestamp(line);
+                if (timestamp) return timestamp;
+            }
+            return null;
+        }
+
+        function getLastValidTimestamp(lines) {
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const timestamp = extractTimestamp(lines[i]);
+                if (timestamp) return timestamp;
+            }
+            return null;
+        }
+
+        async function loadAndParseLogs() {
+            try {
+                setStatus('Loading logs...', 'loading');
+                loadBtn.disabled = true;
+
+                entities.clear();
+                events = [];
+                gatewayColors.clear();
+                nodeOffsets.clear();
+
+                let allTimestamps = []; // Collect all timestamps for proper range calculation
+
+                // Load and parse gateway logs
+                for (const logFile of gateway_logs) {
+
+                    const content = await loadLogFile(logFile);
+                    const lines = content.split('\n').filter(line => line.trim());
+
+
+                    // Extract first and last timestamps for timeline calculation
+                    if (lines.length > 0) {
+                        const firstTimestamp = getFirstValidTimestamp(lines);
+                        const lastTimestamp = getLastValidTimestamp(lines);
+
+                        if (firstTimestamp) allTimestamps.push(firstTimestamp);
+                        if (lastTimestamp) allTimestamps.push(lastTimestamp);
+                    }
+
+                    let peerId = null;
+                    const entityName = logFile.split('/').pop().replace('.log', '');
+
+                    // Find peer ID
+                    for (const line of lines) {
+                        const extractedPeerId = extractPeerIdFromLine(line);
+                        if (extractedPeerId) {
+                            peerId = extractedPeerId;
+                            const gatewayColor = generateRandomColor();
+                            gatewayColors.set(peerId, gatewayColor);
+                            entities.set(peerId, {
+                                type: 'gateway',
+                                name: entityName,
+                                peerId: peerId,
+                                color: gatewayColor
+                            });
+                            break;
+                        }
+                    }
+
+                    // Find sending events
+                    for (const line of lines) {
+                        const timestamp = extractTimestamp(line);
+                        const sendingData = extractSendingRequest(line);
+
+                        if (timestamp && sendingData && peerId) {
+                            events.push({
+                                timestamp: timestamp,
+                                type: 'gateway_to_node',
+                                fromPeerId: peerId,
+                                toPeerId: sendingData.targetPeerId,
+                                transactionId: sendingData.transactionId
+                            });
+                        }
+                    }
+                }
+
+                // Load and parse node logs
+                for (const logFile of node_logs) {
+                    const content = await loadLogFile(logFile);
+                    const lines = content.split('\n').filter(line => line.trim());
+
+                    // Extract first and last timestamps for timeline calculation
+                    if (lines.length > 0) {
+                        const firstTimestamp = getFirstValidTimestamp(lines);
+                        const lastTimestamp = getLastValidTimestamp(lines);
+                        if (firstTimestamp) allTimestamps.push(firstTimestamp);
+                        if (lastTimestamp) allTimestamps.push(lastTimestamp);
+                    }
+
+                    let peerId = null;
+                    const entityName = logFile.split('/').pop().replace('.log', '');
+
+                    // Find peer ID
+                    for (const line of lines) {
+                        const extractedPeerId = extractPeerIdFromLine(line);
+                        if (extractedPeerId) {
+                            peerId = extractedPeerId;
+                            entities.set(peerId, {
+                                type: 'node',
+                                name: entityName,
+                                peerId: peerId
+                            });
+                            break;
+                        }
+                    }
+
+                    // Find broadcast_self_state events
+                    for (const line of lines) {
+                        const timestamp = extractTimestamp(line);
+                        const broadcastData = extractBroadcastSelfState(line);
+
+                        if (timestamp && broadcastData && peerId) {
+                            events.push({
+                                timestamp: timestamp,
+                                type: 'node_broadcast',
+                                fromPeerId: peerId,
+                                broadcastType: 'self_state'
+                            });
+                        }
+                    }
+
+                    // Find offset update events
+                    for (const line of lines) {
+                        const timestamp = extractTimestamp(line);
+                        const offsetData = extractOffsetUpdate(line);
+
+                        if (timestamp && offsetData && peerId) {
+                            events.push({
+                                timestamp: timestamp,
+                                type: 'offset_update',
+                                peerId: peerId,
+                                offsetData: offsetData.offsetData
+                            });
+                        }
+                    }
+                }
+
+                // Sort events by timestamp
+                events.sort((a, b) => a.timestamp - b.timestamp);
+
+                // Calculate time range from all timestamps
+                if (allTimestamps.length > 0) {
+                    allTimestamps.sort((a, b) => a - b);
+                    startTime = allTimestamps[0];
+                    endTime = allTimestamps[allTimestamps.length - 1];
+
+                    startTimeDisplay.textContent = `Start: ${formatTime(startTime)}`;
+                    endTimeDisplay.textContent = `End: ${formatTime(endTime)}`;
+                    currentTimeDisplay.textContent = `Current: ${formatTime(startTime)}`;
+                } else {
+                    setStatus('No valid timestamps found in logs', 'stopped');
+                    loadBtn.disabled = false;
+                    return;
+                }
+
+                if (events.length === 0) {
+                    setStatus('No events found in logs', 'stopped');
+                    loadBtn.disabled = false;
+                    return;
+                }
+
+                // Create visualization
+                createVisualization();
+
+                setStatus(`Loaded ${events.length} events from ${entities.size} entities`, 'loaded');
+                playBtn.disabled = false;
+                loadBtn.disabled = false;
+
+            } catch (error) {
+                setStatus(`Error loading logs: ${error.message}`, 'stopped');
+                loadBtn.disabled = false;
+                console.error('Error loading logs:', error);
+            }
+        }
+
+        function createVisualization() {
+            visualization.innerHTML = '';
+
+            const vizWidth = visualization.clientWidth;
+            const vizHeight = visualization.clientHeight;
+
+            // Separate entities by type
+            const gateways = Array.from(entities.values()).filter(e => e.type === 'gateway');
+            const nodes = Array.from(entities.values()).filter(e => e.type === 'node');
+
+            // Position gateways on the left
+            gateways.forEach((gateway, index) => {
+                const div = document.createElement('div');
+                div.className = 'entity gateway';
+                div.textContent = gateway.name;
+                div.style.left = '100px';
+                div.style.top = `${100 + index * 120}px`;
+                div.setAttribute('data-peer-id', gateway.peerId);
+
+                // Apply color mark
+                if (gateway.color) {
+                    div.style.setProperty('--gateway-color', gateway.color);
+                    div.style.setProperty('--after-background', gateway.color);
+                    // Use CSS custom property for the ::after pseudo-element
+                    const style = document.createElement('style');
+                    style.textContent = `
+                        .entity.gateway[data-peer-id="${gateway.peerId}"]::after {
+                            background: ${gateway.color};
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+
+                visualization.appendChild(div);
+            });
+
+            // Position nodes in a triangle formation on the right
+            const nodeBaseX = vizWidth - 250; // Base X position for triangle
+            const nodeBaseY = vizHeight / 2; // Center Y position
+            const triangleRadius = 120; // Distance from center to each node
+
+            nodes.forEach((node, index) => {
+                const div = document.createElement('div');
+                div.className = 'entity node';
+                div.textContent = node.name;
+
+                // Calculate triangle positions
+                let x, y;
+                if (nodes.length === 1) {
+                    // Single node - center position
+                    x = nodeBaseX;
+                    y = nodeBaseY;
+                } else if (nodes.length === 2) {
+                    // Two nodes - vertical line
+                    x = nodeBaseX;
+                    y = nodeBaseY + (index === 0 ? -60 : 60);
+                } else {
+                    // Three or more nodes - triangle formation
+                    const angle = (index * 2 * Math.PI) / Math.max(3, nodes.length);
+                    x = nodeBaseX + Math.cos(angle) * triangleRadius;
+                    y = nodeBaseY + Math.sin(angle) * triangleRadius;
+                }
+
+                div.style.left = `${x - 40}px`; // Offset by half the node width
+                div.style.top = `${y - 40}px`; // Offset by half the node height
+                div.setAttribute('data-peer-id', node.peerId);
+
+                // Add offset display element
+                const offsetDiv = document.createElement('div');
+                offsetDiv.className = 'offset-display';
+                offsetDiv.textContent = 'Offset: empty';
+                offsetDiv.setAttribute('data-offset-for', node.peerId);
+                div.appendChild(offsetDiv);
+
+                visualization.appendChild(div);
+            });
+        }
+
+        function getEntityPosition(peerId) {
+            const entityDiv = visualization.querySelector(`[data-peer-id="${peerId}"]`);
+            if (!entityDiv) return null;
+
+            const rect = entityDiv.getBoundingClientRect();
+            const vizRect = visualization.getBoundingClientRect();
+
+            return {
+                x: rect.left - vizRect.left + rect.width / 2,
+                y: rect.top - vizRect.top + rect.height / 2
+            };
+        }
+
+        function animateMessage(fromPeerId, toPeerId, type) {
+            const fromPos = getEntityPosition(fromPeerId);
+            const toPos = getEntityPosition(toPeerId);
+
+            if (!fromPos || !toPos) return;
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.left = `${fromPos.x - 7.5}px`;
+            messageDiv.style.top = `${fromPos.y - 7.5}px`;
+
+            // Use gateway color for gateway-to-node messages
+            if (type === 'gateway-to-node' && gatewayColors.has(fromPeerId)) {
+                const gatewayColor = gatewayColors.get(fromPeerId);
+                messageDiv.style.background = `radial-gradient(circle, ${gatewayColor}, ${gatewayColor}dd)`;
+            }
+
+            visualization.appendChild(messageDiv);
+
+            // Animate the message
+            const deltaX = toPos.x - fromPos.x;
+            const deltaY = toPos.y - fromPos.y;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const duration = Math.min(1000, distance * 2); // Animation duration based on distance
+
+            messageDiv.animate([
+                { transform: 'translate(0, 0)' },
+                { transform: `translate(${deltaX}px, ${deltaY}px)` }
+            ], {
+                duration: duration,
+                easing: 'ease-out'
+            }).onfinish = () => {
+                messageDiv.remove();
+            };
+        }
+
+        function updateNodeOffset(peerId, offsetData) {
+            // Update the stored offset
+            nodeOffsets.set(peerId, offsetData);
+
+            // Find and update the offset display element
+            const offsetDisplay = visualization.querySelector(`[data-offset-for="${peerId}"]`);
+            if (offsetDisplay) {
+                offsetDisplay.textContent = offsetData;
+
+                // Add pulse animation to show the update
+                offsetDisplay.classList.add('offset-updated');
+                setTimeout(() => {
+                    offsetDisplay.classList.remove('offset-updated');
+                }, 500);
+            }
+        }
+
+        function updateProgress() {
+            if (!startTime || !endTime || events.length === 0) return;
+
+            const currentEvent = events[currentEventIndex];
+            if (!currentEvent) return;
+
+            const totalDuration = endTime - startTime;
+            const elapsed = currentEvent.timestamp - startTime;
+            const progress = (elapsed / totalDuration) * 100;
+
+            progressFill.style.width = `${progress}%`;
+            currentTimeDisplay.textContent = `Current: ${formatTime(currentEvent.timestamp)}`;
+        }
+
+        function playbackLoop(currentTime) {
+            if (!isPlaying) return;
+
+            const deltaTime = currentTime - lastUpdateTime;
+            const speedAdjustedDelta = deltaTime * playbackSpeed;
+
+            if (currentEventIndex < events.length && speedAdjustedDelta >= 100) { // Minimum 100ms between events
+                const event = events[currentEventIndex];
+
+                // Animate the event
+                if (event.type === 'gateway_to_node') {
+                    animateMessage(event.fromPeerId, event.toPeerId, 'gateway-to-node');
+                } else if (event.type === 'node_broadcast') {
+                    // Broadcast from one node to all other nodes
+                    const allNodes = Array.from(entities.values()).filter(e => e.type === 'node');
+                    const otherNodes = allNodes.filter(node => node.peerId !== event.fromPeerId);
+
+                    otherNodes.forEach((targetNode, index) => {
+                        // Stagger the animations slightly for visual effect
+                        setTimeout(() => {
+                            animateMessage(event.fromPeerId, targetNode.peerId, 'node-broadcast');
+                        }, index * 50);
+                    });
+                } else if (event.type === 'offset_update') {
+                    // Update the node's offset display
+                    updateNodeOffset(event.peerId, event.offsetData);
+                }
+
+                currentEventIndex++;
+                updateProgress();
+                lastUpdateTime = currentTime;
+            }
+
+            if (currentEventIndex >= events.length) {
+                // Playback finished
+                pausePlayback();
+                setStatus('Playback completed', 'stopped');
+                return;
+            }
+
+            animationId = requestAnimationFrame(playbackLoop);
+        }
+
+        function startPlayback() {
+            if (events.length === 0) return;
+
+            isPlaying = true;
+            setStatus('Playing...', 'playing');
+            playBtn.disabled = true;
+            pauseBtn.disabled = false;
+
+            lastUpdateTime = performance.now();
+            animationId = requestAnimationFrame(playbackLoop);
+        }
+
+        function pausePlayback() {
+            isPlaying = false;
+            setStatus('Paused', 'paused');
+            playBtn.disabled = false;
+            pauseBtn.disabled = true;
+
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (entities.size > 0) {
+                createVisualization();
+            }
+        });
+    </script>
+</body>
+
+</html>

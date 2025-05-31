@@ -14,7 +14,7 @@ use common::{
   transaction::Transaction,
 };
 use libp2p::PeerId;
-use log::{error, info};
+use log::{debug, error, info};
 use std::{
   collections::{HashMap, HashSet},
   num::NonZeroUsize,
@@ -217,6 +217,7 @@ impl<L: Linearizer> App<L> {
           }
         }
 
+        debug!("send_back_missing_txs to peerID:[{}]", peer_id);
         self
           .p2p_interface
           .sender
@@ -228,6 +229,7 @@ impl<L: Linearizer> App<L> {
 
   fn advertise_offsets_and_request_missing(&mut self) {
     self.recalculate_consensus_offsets();
+    debug!("broadcast_self_state: {:?}", self.self_offsets);
     self.p2p_interface.send(Outbox::State(NodeState {
       offsets: self.self_offsets.clone(),
     }));
@@ -381,6 +383,8 @@ fn update_self_offsets(
 
     updates.push((range, new_offset));
   }
+
+  debug!("my_current_offset: {:?}", &self_offsets);
 
   updates
 }

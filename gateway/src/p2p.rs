@@ -114,7 +114,7 @@ impl P2P {
       tokio::select! {
           Some(request) = receiver.recv() => {
               for peer_id in &maroon_peer_ids {
-                  debug!("Sending request to {}", peer_id);
+                  debug!("Sending request {request:?} to {peer_id}");
                   let _request_id = swarm.behaviour_mut().request_response.send_request(peer_id, request.clone());
               }
           },

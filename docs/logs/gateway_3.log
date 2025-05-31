@@ -1,0 +1,306 @@
+[2025-05-31T18:13:42Z INFO  gateway::p2p] Local peer id: PeerId("12D3KooWNBtdH3qtnxe77u6kBFRuewc3vHtbbRHtqckEuiwvxno9")
+[2025-05-31T18:13:42Z DEBUG gateway::p2p] Dialing /ip4/127.0.0.1/tcp/3000 …
+[2025-05-31T18:13:42Z DEBUG gateway::p2p] connected to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:42Z DEBUG gateway::p2p] MetaExchange: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Request { request_id: InboundRequestId(1), request: Request { role: Node }, channel: ResponseChannel { sender: Sender { complete: false } } } }
+[2025-05-31T18:13:42Z DEBUG gateway::p2p] MetaExchangeRequestRes: Ok(())
+[2025-05-31T18:13:42Z DEBUG gateway::p2p] MetaExchange: ResponseSent { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), request_id: InboundRequestId(1) }
+[2025-05-31T18:13:44Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741824), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:44Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(1), response: Acknowledged } }
+[2025-05-31T18:13:44Z DEBUG gateway::p2p] Response: OutboundRequestId(1), Acknowledged
+[2025-05-31T18:13:45Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741825), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:45Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(2), response: Acknowledged } }
+[2025-05-31T18:13:45Z DEBUG gateway::p2p] Response: OutboundRequestId(2), Acknowledged
+[2025-05-31T18:13:46Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741826), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:46Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(3), response: Acknowledged } }
+[2025-05-31T18:13:46Z DEBUG gateway::p2p] Response: OutboundRequestId(3), Acknowledged
+[2025-05-31T18:13:47Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741827), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:47Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(4), response: Acknowledged } }
+[2025-05-31T18:13:47Z DEBUG gateway::p2p] Response: OutboundRequestId(4), Acknowledged
+[2025-05-31T18:13:48Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741828), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:48Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(5), response: Acknowledged } }
+[2025-05-31T18:13:48Z DEBUG gateway::p2p] Response: OutboundRequestId(5), Acknowledged
+[2025-05-31T18:13:49Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741829), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:49Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(6), response: Acknowledged } }
+[2025-05-31T18:13:49Z DEBUG gateway::p2p] Response: OutboundRequestId(6), Acknowledged
+[2025-05-31T18:13:50Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741830), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:50Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(7), response: Acknowledged } }
+[2025-05-31T18:13:50Z DEBUG gateway::p2p] Response: OutboundRequestId(7), Acknowledged
+[2025-05-31T18:13:51Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741831), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:51Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(8), response: Acknowledged } }
+[2025-05-31T18:13:51Z DEBUG gateway::p2p] Response: OutboundRequestId(8), Acknowledged
+[2025-05-31T18:13:52Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741832), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:52Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(9), response: Acknowledged } }
+[2025-05-31T18:13:52Z DEBUG gateway::p2p] Response: OutboundRequestId(9), Acknowledged
+[2025-05-31T18:13:53Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741833), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:53Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(10), response: Acknowledged } }
+[2025-05-31T18:13:53Z DEBUG gateway::p2p] Response: OutboundRequestId(10), Acknowledged
+[2025-05-31T18:13:54Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741834), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:54Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(11), response: Acknowledged } }
+[2025-05-31T18:13:54Z DEBUG gateway::p2p] Response: OutboundRequestId(11), Acknowledged
+[2025-05-31T18:13:55Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741835), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:55Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(12), response: Acknowledged } }
+[2025-05-31T18:13:55Z DEBUG gateway::p2p] Response: OutboundRequestId(12), Acknowledged
+[2025-05-31T18:13:56Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741836), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:56Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(13), response: Acknowledged } }
+[2025-05-31T18:13:56Z DEBUG gateway::p2p] Response: OutboundRequestId(13), Acknowledged
+[2025-05-31T18:13:57Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741837), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:57Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(14), response: Acknowledged } }
+[2025-05-31T18:13:57Z DEBUG gateway::p2p] Response: OutboundRequestId(14), Acknowledged
+[2025-05-31T18:13:58Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741838), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:58Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(15), response: Acknowledged } }
+[2025-05-31T18:13:58Z DEBUG gateway::p2p] Response: OutboundRequestId(15), Acknowledged
+[2025-05-31T18:13:59Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741839), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:13:59Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(16), response: Acknowledged } }
+[2025-05-31T18:13:59Z DEBUG gateway::p2p] Response: OutboundRequestId(16), Acknowledged
+[2025-05-31T18:14:00Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741840), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:00Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(17), response: Acknowledged } }
+[2025-05-31T18:14:00Z DEBUG gateway::p2p] Response: OutboundRequestId(17), Acknowledged
+[2025-05-31T18:14:01Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741841), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:01Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(18), response: Acknowledged } }
+[2025-05-31T18:14:01Z DEBUG gateway::p2p] Response: OutboundRequestId(18), Acknowledged
+[2025-05-31T18:14:02Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741842), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:02Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(19), response: Acknowledged } }
+[2025-05-31T18:14:02Z DEBUG gateway::p2p] Response: OutboundRequestId(19), Acknowledged
+[2025-05-31T18:14:03Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741843), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:03Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(20), response: Acknowledged } }
+[2025-05-31T18:14:03Z DEBUG gateway::p2p] Response: OutboundRequestId(20), Acknowledged
+[2025-05-31T18:14:04Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741844), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:04Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(21), response: Acknowledged } }
+[2025-05-31T18:14:04Z DEBUG gateway::p2p] Response: OutboundRequestId(21), Acknowledged
+[2025-05-31T18:14:05Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741845), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:05Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(22), response: Acknowledged } }
+[2025-05-31T18:14:05Z DEBUG gateway::p2p] Response: OutboundRequestId(22), Acknowledged
+[2025-05-31T18:14:06Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741846), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:06Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(23), response: Acknowledged } }
+[2025-05-31T18:14:06Z DEBUG gateway::p2p] Response: OutboundRequestId(23), Acknowledged
+[2025-05-31T18:14:07Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741847), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:07Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(24), response: Acknowledged } }
+[2025-05-31T18:14:07Z DEBUG gateway::p2p] Response: OutboundRequestId(24), Acknowledged
+[2025-05-31T18:14:08Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741848), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:08Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(25), response: Acknowledged } }
+[2025-05-31T18:14:08Z DEBUG gateway::p2p] Response: OutboundRequestId(25), Acknowledged
+[2025-05-31T18:14:09Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741849), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:09Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(26), response: Acknowledged } }
+[2025-05-31T18:14:09Z DEBUG gateway::p2p] Response: OutboundRequestId(26), Acknowledged
+[2025-05-31T18:14:10Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741850), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:10Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(27), response: Acknowledged } }
+[2025-05-31T18:14:10Z DEBUG gateway::p2p] Response: OutboundRequestId(27), Acknowledged
+[2025-05-31T18:14:11Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741851), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:11Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(28), response: Acknowledged } }
+[2025-05-31T18:14:11Z DEBUG gateway::p2p] Response: OutboundRequestId(28), Acknowledged
+[2025-05-31T18:14:12Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741852), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:12Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(29), response: Acknowledged } }
+[2025-05-31T18:14:12Z DEBUG gateway::p2p] Response: OutboundRequestId(29), Acknowledged
+[2025-05-31T18:14:13Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741853), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:13Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(30), response: Acknowledged } }
+[2025-05-31T18:14:13Z DEBUG gateway::p2p] Response: OutboundRequestId(30), Acknowledged
+[2025-05-31T18:14:14Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741854), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:14Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(31), response: Acknowledged } }
+[2025-05-31T18:14:14Z DEBUG gateway::p2p] Response: OutboundRequestId(31), Acknowledged
+[2025-05-31T18:14:15Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741855), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:15Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(32), response: Acknowledged } }
+[2025-05-31T18:14:15Z DEBUG gateway::p2p] Response: OutboundRequestId(32), Acknowledged
+[2025-05-31T18:14:16Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741856), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:16Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(33), response: Acknowledged } }
+[2025-05-31T18:14:16Z DEBUG gateway::p2p] Response: OutboundRequestId(33), Acknowledged
+[2025-05-31T18:14:17Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741857), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:17Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(34), response: Acknowledged } }
+[2025-05-31T18:14:17Z DEBUG gateway::p2p] Response: OutboundRequestId(34), Acknowledged
+[2025-05-31T18:14:18Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741858), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:18Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(35), response: Acknowledged } }
+[2025-05-31T18:14:18Z DEBUG gateway::p2p] Response: OutboundRequestId(35), Acknowledged
+[2025-05-31T18:14:19Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741859), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:19Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(36), response: Acknowledged } }
+[2025-05-31T18:14:19Z DEBUG gateway::p2p] Response: OutboundRequestId(36), Acknowledged
+[2025-05-31T18:14:20Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741860), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:20Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(37), response: Acknowledged } }
+[2025-05-31T18:14:20Z DEBUG gateway::p2p] Response: OutboundRequestId(37), Acknowledged
+[2025-05-31T18:14:21Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741861), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:21Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(38), response: Acknowledged } }
+[2025-05-31T18:14:21Z DEBUG gateway::p2p] Response: OutboundRequestId(38), Acknowledged
+[2025-05-31T18:14:22Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741862), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:22Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(39), response: Acknowledged } }
+[2025-05-31T18:14:22Z DEBUG gateway::p2p] Response: OutboundRequestId(39), Acknowledged
+[2025-05-31T18:14:23Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741863), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:23Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(40), response: Acknowledged } }
+[2025-05-31T18:14:23Z DEBUG gateway::p2p] Response: OutboundRequestId(40), Acknowledged
+[2025-05-31T18:14:24Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741864), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:24Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(41), response: Acknowledged } }
+[2025-05-31T18:14:24Z DEBUG gateway::p2p] Response: OutboundRequestId(41), Acknowledged
+[2025-05-31T18:14:25Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741865), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:25Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(42), response: Acknowledged } }
+[2025-05-31T18:14:25Z DEBUG gateway::p2p] Response: OutboundRequestId(42), Acknowledged
+[2025-05-31T18:14:26Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741866), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:26Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(43), response: Acknowledged } }
+[2025-05-31T18:14:26Z DEBUG gateway::p2p] Response: OutboundRequestId(43), Acknowledged
+[2025-05-31T18:14:27Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741867), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:27Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(44), response: Acknowledged } }
+[2025-05-31T18:14:27Z DEBUG gateway::p2p] Response: OutboundRequestId(44), Acknowledged
+[2025-05-31T18:14:28Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741868), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:28Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(45), response: Acknowledged } }
+[2025-05-31T18:14:28Z DEBUG gateway::p2p] Response: OutboundRequestId(45), Acknowledged
+[2025-05-31T18:14:29Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741869), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:29Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(46), response: Acknowledged } }
+[2025-05-31T18:14:29Z DEBUG gateway::p2p] Response: OutboundRequestId(46), Acknowledged
+[2025-05-31T18:14:30Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741870), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:30Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(47), response: Acknowledged } }
+[2025-05-31T18:14:30Z DEBUG gateway::p2p] Response: OutboundRequestId(47), Acknowledged
+[2025-05-31T18:14:31Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741871), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:31Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(48), response: Acknowledged } }
+[2025-05-31T18:14:31Z DEBUG gateway::p2p] Response: OutboundRequestId(48), Acknowledged
+[2025-05-31T18:14:32Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741872), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:32Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(49), response: Acknowledged } }
+[2025-05-31T18:14:32Z DEBUG gateway::p2p] Response: OutboundRequestId(49), Acknowledged
+[2025-05-31T18:14:33Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741873), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:33Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(50), response: Acknowledged } }
+[2025-05-31T18:14:33Z DEBUG gateway::p2p] Response: OutboundRequestId(50), Acknowledged
+[2025-05-31T18:14:34Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741874), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:34Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(51), response: Acknowledged } }
+[2025-05-31T18:14:34Z DEBUG gateway::p2p] Response: OutboundRequestId(51), Acknowledged
+[2025-05-31T18:14:35Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741875), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:35Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(52), response: Acknowledged } }
+[2025-05-31T18:14:35Z DEBUG gateway::p2p] Response: OutboundRequestId(52), Acknowledged
+[2025-05-31T18:14:36Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741876), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:36Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(53), response: Acknowledged } }
+[2025-05-31T18:14:36Z DEBUG gateway::p2p] Response: OutboundRequestId(53), Acknowledged
+[2025-05-31T18:14:37Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741877), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:37Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(54), response: Acknowledged } }
+[2025-05-31T18:14:37Z DEBUG gateway::p2p] Response: OutboundRequestId(54), Acknowledged
+[2025-05-31T18:14:38Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741878), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:38Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(55), response: Acknowledged } }
+[2025-05-31T18:14:38Z DEBUG gateway::p2p] Response: OutboundRequestId(55), Acknowledged
+[2025-05-31T18:14:39Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741879), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:39Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(56), response: Acknowledged } }
+[2025-05-31T18:14:39Z DEBUG gateway::p2p] Response: OutboundRequestId(56), Acknowledged
+[2025-05-31T18:14:40Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741880), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:40Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(57), response: Acknowledged } }
+[2025-05-31T18:14:40Z DEBUG gateway::p2p] Response: OutboundRequestId(57), Acknowledged
+[2025-05-31T18:14:41Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741881), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:41Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(58), response: Acknowledged } }
+[2025-05-31T18:14:41Z DEBUG gateway::p2p] Response: OutboundRequestId(58), Acknowledged
+[2025-05-31T18:14:42Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741882), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:42Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(59), response: Acknowledged } }
+[2025-05-31T18:14:42Z DEBUG gateway::p2p] Response: OutboundRequestId(59), Acknowledged
+[2025-05-31T18:14:43Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741883), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:43Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(60), response: Acknowledged } }
+[2025-05-31T18:14:43Z DEBUG gateway::p2p] Response: OutboundRequestId(60), Acknowledged
+[2025-05-31T18:14:44Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741884), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:44Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(61), response: Acknowledged } }
+[2025-05-31T18:14:44Z DEBUG gateway::p2p] Response: OutboundRequestId(61), Acknowledged
+[2025-05-31T18:14:45Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741885), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:45Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(62), response: Acknowledged } }
+[2025-05-31T18:14:45Z DEBUG gateway::p2p] Response: OutboundRequestId(62), Acknowledged
+[2025-05-31T18:14:46Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741886), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:46Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(63), response: Acknowledged } }
+[2025-05-31T18:14:46Z DEBUG gateway::p2p] Response: OutboundRequestId(63), Acknowledged
+[2025-05-31T18:14:47Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741887), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:47Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(64), response: Acknowledged } }
+[2025-05-31T18:14:47Z DEBUG gateway::p2p] Response: OutboundRequestId(64), Acknowledged
+[2025-05-31T18:14:48Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741888), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:48Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(65), response: Acknowledged } }
+[2025-05-31T18:14:48Z DEBUG gateway::p2p] Response: OutboundRequestId(65), Acknowledged
+[2025-05-31T18:14:49Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741889), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:49Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(66), response: Acknowledged } }
+[2025-05-31T18:14:49Z DEBUG gateway::p2p] Response: OutboundRequestId(66), Acknowledged
+[2025-05-31T18:14:50Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741890), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:50Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(67), response: Acknowledged } }
+[2025-05-31T18:14:50Z DEBUG gateway::p2p] Response: OutboundRequestId(67), Acknowledged
+[2025-05-31T18:14:51Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741891), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:51Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(68), response: Acknowledged } }
+[2025-05-31T18:14:51Z DEBUG gateway::p2p] Response: OutboundRequestId(68), Acknowledged
+[2025-05-31T18:14:52Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741892), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:52Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(69), response: Acknowledged } }
+[2025-05-31T18:14:52Z DEBUG gateway::p2p] Response: OutboundRequestId(69), Acknowledged
+[2025-05-31T18:14:53Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741893), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:53Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(70), response: Acknowledged } }
+[2025-05-31T18:14:53Z DEBUG gateway::p2p] Response: OutboundRequestId(70), Acknowledged
+[2025-05-31T18:14:54Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741894), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:54Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(71), response: Acknowledged } }
+[2025-05-31T18:14:54Z DEBUG gateway::p2p] Response: OutboundRequestId(71), Acknowledged
+[2025-05-31T18:14:55Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741895), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:55Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(72), response: Acknowledged } }
+[2025-05-31T18:14:55Z DEBUG gateway::p2p] Response: OutboundRequestId(72), Acknowledged
+[2025-05-31T18:14:56Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741896), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:56Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(73), response: Acknowledged } }
+[2025-05-31T18:14:56Z DEBUG gateway::p2p] Response: OutboundRequestId(73), Acknowledged
+[2025-05-31T18:14:57Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741897), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:57Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(74), response: Acknowledged } }
+[2025-05-31T18:14:57Z DEBUG gateway::p2p] Response: OutboundRequestId(74), Acknowledged
+[2025-05-31T18:14:58Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741898), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:58Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(75), response: Acknowledged } }
+[2025-05-31T18:14:58Z DEBUG gateway::p2p] Response: OutboundRequestId(75), Acknowledged
+[2025-05-31T18:14:59Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741899), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:14:59Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(76), response: Acknowledged } }
+[2025-05-31T18:14:59Z DEBUG gateway::p2p] Response: OutboundRequestId(76), Acknowledged
+[2025-05-31T18:15:00Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741900), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:00Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(77), response: Acknowledged } }
+[2025-05-31T18:15:00Z DEBUG gateway::p2p] Response: OutboundRequestId(77), Acknowledged
+[2025-05-31T18:15:01Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741901), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:01Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(78), response: Acknowledged } }
+[2025-05-31T18:15:01Z DEBUG gateway::p2p] Response: OutboundRequestId(78), Acknowledged
+[2025-05-31T18:15:02Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741902), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:02Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(79), response: Acknowledged } }
+[2025-05-31T18:15:02Z DEBUG gateway::p2p] Response: OutboundRequestId(79), Acknowledged
+[2025-05-31T18:15:03Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741903), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:03Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(80), response: Acknowledged } }
+[2025-05-31T18:15:03Z DEBUG gateway::p2p] Response: OutboundRequestId(80), Acknowledged
+[2025-05-31T18:15:04Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741904), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:04Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(81), response: Acknowledged } }
+[2025-05-31T18:15:04Z DEBUG gateway::p2p] Response: OutboundRequestId(81), Acknowledged
+[2025-05-31T18:15:05Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741905), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:05Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(82), response: Acknowledged } }
+[2025-05-31T18:15:05Z DEBUG gateway::p2p] Response: OutboundRequestId(82), Acknowledged
+[2025-05-31T18:15:06Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741906), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:06Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(83), response: Acknowledged } }
+[2025-05-31T18:15:06Z DEBUG gateway::p2p] Response: OutboundRequestId(83), Acknowledged
+[2025-05-31T18:15:07Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741907), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:07Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(84), response: Acknowledged } }
+[2025-05-31T18:15:07Z DEBUG gateway::p2p] Response: OutboundRequestId(84), Acknowledged
+[2025-05-31T18:15:08Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741908), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:08Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(85), response: Acknowledged } }
+[2025-05-31T18:15:08Z DEBUG gateway::p2p] Response: OutboundRequestId(85), Acknowledged
+[2025-05-31T18:15:09Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741909), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:09Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(86), response: Acknowledged } }
+[2025-05-31T18:15:09Z DEBUG gateway::p2p] Response: OutboundRequestId(86), Acknowledged
+[2025-05-31T18:15:10Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741910), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:10Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(87), response: Acknowledged } }
+[2025-05-31T18:15:10Z DEBUG gateway::p2p] Response: OutboundRequestId(87), Acknowledged
+[2025-05-31T18:15:11Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741911), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:11Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(88), response: Acknowledged } }
+[2025-05-31T18:15:11Z DEBUG gateway::p2p] Response: OutboundRequestId(88), Acknowledged
+[2025-05-31T18:15:12Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741912), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:12Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(89), response: Acknowledged } }
+[2025-05-31T18:15:12Z DEBUG gateway::p2p] Response: OutboundRequestId(89), Acknowledged
+[2025-05-31T18:15:13Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741913), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:13Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(90), response: Acknowledged } }
+[2025-05-31T18:15:13Z DEBUG gateway::p2p] Response: OutboundRequestId(90), Acknowledged
+[2025-05-31T18:15:14Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741914), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:14Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(91), response: Acknowledged } }
+[2025-05-31T18:15:14Z DEBUG gateway::p2p] Response: OutboundRequestId(91), Acknowledged
+[2025-05-31T18:15:15Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741915), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:15Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(92), response: Acknowledged } }
+[2025-05-31T18:15:15Z DEBUG gateway::p2p] Response: OutboundRequestId(92), Acknowledged
+[2025-05-31T18:15:16Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741916), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:16Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(93), response: Acknowledged } }
+[2025-05-31T18:15:16Z DEBUG gateway::p2p] Response: OutboundRequestId(93), Acknowledged
+[2025-05-31T18:15:17Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741917), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:17Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(94), response: Acknowledged } }
+[2025-05-31T18:15:17Z DEBUG gateway::p2p] Response: OutboundRequestId(94), Acknowledged
+[2025-05-31T18:15:18Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741918), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:18Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(95), response: Acknowledged } }
+[2025-05-31T18:15:18Z DEBUG gateway::p2p] Response: OutboundRequestId(95), Acknowledged
+[2025-05-31T18:15:19Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741919), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:19Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(96), response: Acknowledged } }
+[2025-05-31T18:15:19Z DEBUG gateway::p2p] Response: OutboundRequestId(96), Acknowledged
+[2025-05-31T18:15:20Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741920), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:20Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(97), response: Acknowledged } }
+[2025-05-31T18:15:20Z DEBUG gateway::p2p] Response: OutboundRequestId(97), Acknowledged
+[2025-05-31T18:15:21Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741921), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:21Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(98), response: Acknowledged } }
+[2025-05-31T18:15:21Z DEBUG gateway::p2p] Response: OutboundRequestId(98), Acknowledged
+[2025-05-31T18:15:22Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741922), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:22Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(99), response: Acknowledged } }
+[2025-05-31T18:15:22Z DEBUG gateway::p2p] Response: OutboundRequestId(99), Acknowledged
+[2025-05-31T18:15:23Z DEBUG gateway::p2p] Sending request NewTransaction(Transaction { id: UniqueU64BlobId(1073741923), status: Created }) to 12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx
+[2025-05-31T18:15:23Z DEBUG gateway::p2p] RequestResponse: Message { peer: PeerId("12D3KooWAwsBGJFmPRTbtVEcsh7KooCr5Fb6WZVFCYRvuWwxyazx"), connection_id: ConnectionId(1), message: Response { request_id: OutboundRequestId(100), response: Acknowledged } }
+[2025-05-31T18:15:23Z DEBUG gateway::p2p] Response: OutboundRequestId(100), Acknowledged

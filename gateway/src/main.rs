@@ -3,6 +3,7 @@ use common::{
   range_key::{KeyOffset, KeyRange, unique_blob_id_from_range_and_offset},
   transaction::{Transaction, TxStatus},
 };
+use log::info;
 use std::time::Duration;
 
 #[tokio::main]
