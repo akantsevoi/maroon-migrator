@@ -1,6 +1,6 @@
 use super::{
-  app_interface::{CurrentOffsets, Request, Response},
-  app_params::Params,
+  interface::{CurrentOffsets, Request, Response},
+  params::Params,
 };
 use crate::{
   epoch::Epoch,
@@ -446,7 +446,7 @@ fn recalculate_order(self_id: PeerId, ids: &HashSet<PeerId>) {
   );
 }
 
-pub fn txs_to_range_tx_map(txs: Vec<Transaction>) -> HashMap<KeyRange, Vec<Transaction>> {
+fn txs_to_range_tx_map(txs: Vec<Transaction>) -> HashMap<KeyRange, Vec<Transaction>> {
   let mut range_map: HashMap<KeyRange, Vec<Transaction>> = HashMap::new();
   for tx in txs {
     let range = range_key::range_from_unique_blob_id(tx.id);

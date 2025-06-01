@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::app::app_interface::CurrentOffsets;
+use crate::app::interface::CurrentOffsets;
 use crate::p2p_interface::*;
 use crate::test_helpers::{new_test_instance, reaches_state, test_tx};
 use common::duplex_channel::create_a_b_duplex_pair;
