@@ -1,6 +1,8 @@
-use crate::{
+use super::{
   app_interface::{CurrentOffsets, Request, Response},
   app_params::Params,
+};
+use crate::{
   epoch::Epoch,
   linearizer::{Linearizer, LogLineriazer},
   p2p_interface::{Inbox, NodeState, Outbox},

@@ -1,4 +1,4 @@
-use maroon::app_params::Params;
+use maroon::app::Params;
 use std::num::NonZeroUsize;
 use std::time::Duration;
 use tokio::sync::oneshot;

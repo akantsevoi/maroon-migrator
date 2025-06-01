@@ -1,8 +1,6 @@
-use crate::app::App;
-use crate::app_interface::{
-  CurrentOffsets, Request as AppStateRequest, Response as AppStateResponse,
+use crate::app::{
+  App, CurrentOffsets, Params, Request as AppStateRequest, Response as AppStateResponse,
 };
-use crate::app_params::Params;
 use crate::linearizer::LogLineriazer;
 use crate::p2p_interface::{Inbox, Outbox};
 use common::invoker_handler::HandlerInterface;
