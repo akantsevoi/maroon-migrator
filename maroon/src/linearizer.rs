@@ -1,4 +1,4 @@
-use crate::epoch::Epoch;
+use crate::epoch_coordinator::epoch::Epoch;
 use common::range_key::UniqueU64BlobId;
 use log::debug;
 
