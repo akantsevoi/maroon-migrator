@@ -2,6 +2,7 @@ use crate::app::App;
 use crate::app_interface::{
   CurrentOffsets, Request as AppStateRequest, Response as AppStateResponse,
 };
+use crate::app_params::Params;
 use crate::linearizer::LogLineriazer;
 use crate::p2p_interface::{Inbox, Outbox};
 use common::invoker_handler::HandlerInterface;
@@ -23,7 +24,7 @@ pub fn new_test_instance(
     PeerId::random(),
     p2p_interface,
     state_interface,
-    crate::app::Params::default(),
+    Params::default(),
   )
   .expect("failed to create test App instance")
 }

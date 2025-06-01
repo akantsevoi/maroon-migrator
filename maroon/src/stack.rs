@@ -1,5 +1,6 @@
-use crate::app::{App, Params};
+use crate::app::App;
 use crate::app_interface::{Request, Response};
+use crate::app_params::Params;
 use crate::linearizer::LogLineriazer;
 use crate::p2p::P2P;
 use crate::p2p_interface::{Inbox, Outbox};
