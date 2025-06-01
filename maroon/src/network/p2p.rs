@@ -1,4 +1,5 @@
-use crate::p2p_interface::{self, NodeState};
+use super::p2p_interface::{Inbox, Outbox};
+use crate::network::p2p_interface::NodeState;
 use common::{
   duplex_channel::Endpoint,
   gm_request_response::{
@@ -32,7 +33,6 @@ use libp2p::{
 };
 use libp2p_request_response::{Message as RequestResponseMessage, ProtocolSupport};
 use log::{debug, error, info, warn};
-use p2p_interface::{Inbox, Outbox};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt::Debug, time::Duration};
 use tokio::sync::mpsc::UnboundedSender;

@@ -5,7 +5,7 @@ use super::{
 use crate::{
   epoch::Epoch,
   linearizer::{Linearizer, LogLineriazer},
-  p2p_interface::{Inbox, NodeState, Outbox},
+  network::{Inbox, NodeState, Outbox},
 };
 use common::{
   duplex_channel::Endpoint,
