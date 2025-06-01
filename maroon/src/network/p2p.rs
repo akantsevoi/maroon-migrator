@@ -1,5 +1,5 @@
-use super::p2p_interface::{Inbox, Outbox};
-use crate::network::p2p_interface::NodeState;
+use super::interface::{Inbox, Outbox};
+use crate::network::interface::NodeState;
 use common::{
   duplex_channel::Endpoint,
   gm_request_response::{
