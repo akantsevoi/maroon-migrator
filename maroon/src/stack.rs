@@ -1,8 +1,6 @@
-use crate::app::{App, Params};
-use crate::app_interface::{Request, Response};
+use crate::app::{App, Params, Request, Response};
 use crate::linearizer::LogLineriazer;
-use crate::p2p::P2P;
-use crate::p2p_interface::{Inbox, Outbox};
+use crate::network::{Inbox, Outbox, P2P};
 use common::duplex_channel::create_a_b_duplex_pair;
 use common::invoker_handler::{InvokerInterface, create_invoker_handler_pair};
 
