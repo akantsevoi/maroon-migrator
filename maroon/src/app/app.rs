@@ -3,7 +3,7 @@ use super::{
   params::Params,
 };
 use crate::{
-  epoch::Epoch,
+  epoch_coordinator::epoch::Epoch,
   linearizer::{Linearizer, LogLineriazer},
   network::{Inbox, NodeState, Outbox},
 };
