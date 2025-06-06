@@ -1,8 +1,9 @@
 use common::range_key::U64BlobIdClosedInterval;
 use derive_more::Display;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Display, Serialize, Deserialize)]
 #[display("Epoch {{ increments: {:?}, hash: 0x{:X} }}", increments, hash.iter().fold(0u128, |acc, &x| (acc << 8) | x as u128))]
 pub struct Epoch {
   pub increments: Vec<U64BlobIdClosedInterval>,
